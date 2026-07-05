@@ -1,3 +1,13 @@
+---
+title: FitBot Gym RAG
+emoji: 🏋️
+colorFrom: purple
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # FitBot 🏋️ — Gym Workout & Nutrition RAG Backend API
 
 A fully local, privacy-first REST API backend that manages chat sessions and answers gym workout and nutrition questions using PDF documents as a RAG (Retrieval-Augmented Generation) knowledge base.
