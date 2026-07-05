@@ -45,15 +45,6 @@ COPY --chown=user:user --from=frontend-builder /app/dist ./frontend/dist
 ENV CUDA_VISIBLE_DEVICES=-1
 ENV OLLAMA_NUM_PARALLEL=1
 
-# Pre-download Ollama models during the Docker build phase.
-# This avoids downloading the large 5GB+ models at runtime.
-RUN (ollama serve &) && \
-    echo "Waiting for Ollama to start during build..." && \
-    sleep 5 && \
-    ollama pull nomic-embed-text && \
-    ollama pull llama3.1:8b && \
-    pkill ollama
-
 # Make the start script executable
 RUN chmod +x start.sh
 
