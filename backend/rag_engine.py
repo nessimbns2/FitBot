@@ -16,7 +16,7 @@ from langchain_core.runnables import RunnablePassthrough
 # ─── Configuration ───────────────────────────────────────────────────────────
 
 VECTORSTORE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vectorstore")
-LLM_MODEL = "llama3.1:8b"
+LLM_MODEL = "llama3.2:3b"
 EMBEDDING_MODEL = "nomic-embed-text"
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200

@@ -18,7 +18,7 @@ echo "✅ Ollama service is up and running!"
 # Pull the models at runtime
 echo "⏳ Checking and pulling AI models (this will only download on first cold-start)..."
 ollama pull nomic-embed-text
-ollama pull llama3.1:8b
+ollama pull llama3.2:3b
 
 # Start the FastAPI application
 echo "🚀 Starting FastAPI application..."
