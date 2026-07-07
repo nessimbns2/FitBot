@@ -197,18 +197,6 @@ def clear_session(session_id: str):
         return {"status": "cleared", "session_id": session_id}
     raise HTTPException(status_code=404, detail="Session ID not found")
 
-# Serve static frontend files if they exist (production build)
-frontend_dist = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist")
-if os.path.exists(frontend_dist):
-    from fastapi.staticfiles import StaticFiles
-    from fastapi.responses import FileResponse
-    
-    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
-    
-    @app.get("/{catchall:path}")
-    def serve_frontend(catchall: str):
-        return FileResponse(os.path.join(frontend_dist, "index.html"))
-
 # ─── Local Server Execution ──────────────────────────────────────────────────
 
 if __name__ == "__main__":

@@ -1,12 +1,4 @@
-# ─── Stage 1: Build the React Frontend ────────────────────────────────────────
-FROM node:20-alpine AS frontend-builder
-WORKDIR /app
-COPY frontend/package*.json ./
-RUN npm install
-COPY frontend/ ./
-RUN npm run build
-
-# ─── Stage 2: Main Image (Python + Ollama + Frontend Build) ───────────────────
+# ─── Backend-Only Image (Python + Ollama) ─────────────────────────────────────
 FROM python:3.11-slim
 
 # Install system dependencies
@@ -39,10 +31,7 @@ COPY --chown=user:user backend/ ./backend/
 COPY --chown=user:user documents/ ./documents/
 COPY --chown=user:user start.sh ./
 
-# Copy built frontend assets from Stage 1
-COPY --chown=user:user --from=frontend-builder /app/dist ./frontend/dist
-
-# Set CPU mode and parallel parameters for Ollama on Hugging Face CPU Spaces
+# Set CPU mode for Ollama on Hugging Face CPU Spaces
 ENV CUDA_VISIBLE_DEVICES=-1
 ENV OLLAMA_NUM_PARALLEL=1
 
