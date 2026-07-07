@@ -222,6 +222,11 @@ def chat_stream_endpoint(request: ChatRequest):
                 elif event["type"] == "sources":
                     sources = event["sources"]
                     yield f"data: {json.dumps(event)}\n\n"
+                elif event["type"] == "heartbeat":
+                    # SSE comment to keep connection alive
+                    yield ": heartbeat\n\n"
+                elif event["type"] == "error":
+                    yield f"data: {json.dumps(event)}\n\n"
 
             # Save to session history
             history.append({"role": "user", "content": user_message})

@@ -258,8 +258,14 @@ def query_rag(retriever, llm, prompt, question: str, chat_history: list = None) 
 def query_rag_stream(retriever, llm, prompt, question: str, chat_history: list = None):
     """
     Stream the RAG chain response token-by-token.
-    Yields dicts: {"type": "token", "content": "..."} and {"type": "sources", "sources": [...]}
+    Uses a background thread + queue so we can send keepalive heartbeats
+    while the LLM is loading/thinking on slow CPU hardware.
+    Yields dicts: {"type": "token/sources/heartbeat", ...}
     """
+    import threading
+    import queue
+    import time
+
     # Retrieve relevant documents
     docs = retriever.invoke(question)
 
@@ -285,14 +291,37 @@ def query_rag_stream(retriever, llm, prompt, question: str, chat_history: list =
 
     yield {"type": "sources", "sources": sources}
 
-    # Stream the LLM response token by token
-    chain = prompt | llm
-    for chunk in chain.stream({
-        "context": context,
-        "chat_history": history_str,
-        "question": question
-    }):
-        token = chunk.content if hasattr(chunk, 'content') else str(chunk)
-        if token:
-            yield {"type": "token", "content": token}
+    # Use a thread + queue so we can send heartbeats while the LLM thinks
+    token_queue = queue.Queue()
+    SENTINEL = object()
+
+    def _run_llm():
+        try:
+            chain = prompt | llm
+            for chunk in chain.stream({
+                "context": context,
+                "chat_history": history_str,
+                "question": question
+            }):
+                token = chunk.content if hasattr(chunk, 'content') else str(chunk)
+                if token:
+                    token_queue.put({"type": "token", "content": token})
+        except Exception as e:
+            token_queue.put({"type": "error", "content": str(e)})
+        finally:
+            token_queue.put(SENTINEL)
+
+    thread = threading.Thread(target=_run_llm, daemon=True)
+    thread.start()
+
+    # Yield tokens as they come, with heartbeats every 5s to keep connection alive
+    while True:
+        try:
+            event = token_queue.get(timeout=5)
+            if event is SENTINEL:
+                break
+            yield event
+        except queue.Empty:
+            # No token yet — send a heartbeat to keep the connection alive
+            yield {"type": "heartbeat"}
 
