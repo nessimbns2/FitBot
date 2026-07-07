@@ -4,9 +4,11 @@ FastAPI backend service for local AI retrieval-augmented generation and session-
 """
 
 import os
+import json
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import uvicorn
 
@@ -14,6 +16,7 @@ from rag_engine import (
     ingest_documents,
     get_rag_chain,
     query_rag,
+    query_rag_stream,
     vectorstore_exists,
     get_pdf_files
 )
@@ -176,6 +179,68 @@ def chat_endpoint(request: ChatRequest):
             status_code=500,
             detail=f"Error querying model: {str(e)}. Tip: Verify Ollama is running and models are pulled."
         )
+
+@app.post("/chat/stream")
+def chat_stream_endpoint(request: ChatRequest):
+    """Stream a response from the RAG pipeline using Server-Sent Events."""
+    if not vectorstore_exists():
+        raise HTTPException(
+            status_code=400,
+            detail="Knowledge base not built. Please run /ingest first."
+        )
+
+    components = load_rag_components()
+    if not components:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to load RAG components. Make sure Ollama is running."
+        )
+
+    retriever, llm, prompt_template = components
+    session_id = request.session_id
+    user_message = request.message
+
+    if session_id not in sessions_db:
+        sessions_db[session_id] = []
+
+    history = sessions_db[session_id]
+
+    def event_generator():
+        try:
+            full_answer = ""
+            sources = []
+            for event in query_rag_stream(
+                retriever=retriever,
+                llm=llm,
+                prompt=prompt_template,
+                question=user_message,
+                chat_history=history
+            ):
+                if event["type"] == "token":
+                    full_answer += event["content"]
+                    yield f"data: {json.dumps(event)}\n\n"
+                elif event["type"] == "sources":
+                    sources = event["sources"]
+                    yield f"data: {json.dumps(event)}\n\n"
+
+            # Save to session history
+            history.append({"role": "user", "content": user_message})
+            history.append({"role": "assistant", "content": full_answer})
+
+            # Send done event
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 @app.get("/sessions", response_model=List[str])
 def list_sessions():

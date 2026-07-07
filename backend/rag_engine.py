@@ -254,3 +254,45 @@ def query_rag(retriever, llm, prompt, question: str, chat_history: list = None) 
         "sources": sources
     }
 
+
+def query_rag_stream(retriever, llm, prompt, question: str, chat_history: list = None):
+    """
+    Stream the RAG chain response token-by-token.
+    Yields dicts: {"type": "token", "content": "..."} and {"type": "sources", "sources": [...]}
+    """
+    # Retrieve relevant documents
+    docs = retriever.invoke(question)
+
+    # Format inputs
+    context = format_docs(docs)
+    history_str = format_chat_history(chat_history or [])
+
+    # Extract sources first and yield them
+    sources = []
+    seen = set()
+    for doc in docs:
+        source_key = (
+            doc.metadata.get("source_filename", "Unknown"),
+            doc.metadata.get("page_display", "Unknown page")
+        )
+        if source_key not in seen:
+            seen.add(source_key)
+            sources.append({
+                "filename": source_key[0],
+                "page": source_key[1],
+                "snippet": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
+            })
+
+    yield {"type": "sources", "sources": sources}
+
+    # Stream the LLM response token by token
+    chain = prompt | llm
+    for chunk in chain.stream({
+        "context": context,
+        "chat_history": history_str,
+        "question": question
+    }):
+        token = chunk.content if hasattr(chunk, 'content') else str(chunk)
+        if token:
+            yield {"type": "token", "content": token}
+

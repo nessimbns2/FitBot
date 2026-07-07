@@ -17,9 +17,7 @@ import {
   BookOpen
 } from 'lucide-react';
 
-const API_URL = window.location.origin === 'http://localhost:5173' 
-  ? 'http://localhost:8000' 
-  : window.location.origin;
+const API_URL = 'https://nessim9898-fitbot-gym-rag.hf.space';
 
 function App() {
   const [sessions, setSessions] = useState([]);
@@ -155,7 +153,7 @@ function App() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/chat`, {
+      const res = await fetch(`${API_URL}/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -165,14 +163,65 @@ function App() {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        // Add assistant response
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: data.answer,
-          sources: data.sources // include sources returned by API
-        }]);
-        // Refresh sessions to show the newly saved session
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let assistantContent = '';
+        let sources = [];
+
+        // Add an empty assistant message that we'll update as tokens stream in
+        setMessages(prev => [...prev, { role: 'assistant', content: '', sources: [] }]);
+
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+
+              if (event.type === 'token') {
+                assistantContent += event.content;
+                setMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    role: 'assistant',
+                    content: assistantContent,
+                    sources: sources
+                  };
+                  return updated;
+                });
+              } else if (event.type === 'sources') {
+                sources = event.sources;
+              } else if (event.type === 'error') {
+                assistantContent = `⚠️ Error: ${event.content}`;
+                setMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = { role: 'assistant', content: assistantContent };
+                  return updated;
+                });
+              }
+            } catch (e) {
+              // skip malformed SSE lines
+            }
+          }
+        }
+
+        // Final update with sources
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: 'assistant',
+            content: assistantContent,
+            sources: sources
+          };
+          return updated;
+        });
         fetchSessions();
       } else {
         const errorData = await res.json();
@@ -184,7 +233,7 @@ function App() {
     } catch (err) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: `⚠️ Connection Error: Could not connect to the local server. Make sure the FastAPI backend is running on port 8000.`
+        content: `⚠️ Connection Error: Could not connect to the server. Please try again.`
       }]);
     } finally {
       setIsLoading(false);
