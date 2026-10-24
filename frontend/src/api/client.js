@@ -83,6 +83,17 @@ export async function askNutrition(question) {
   });
 }
 
+export async function scanMealPhoto(imageBase64, mimeType = 'image/jpeg', mealSlot = null) {
+  return request('/api/nutrition/scan-meal', {
+    method: 'POST',
+    body: JSON.stringify({
+      image_base64: imageBase64,
+      mime_type: mimeType,
+      meal_slot: mealSlot,
+    }),
+  });
+}
+
 // ── Exercises ─────────────────────────────────────────────────────────────────
 
 export async function getCatalogExercises(filters = {}) {

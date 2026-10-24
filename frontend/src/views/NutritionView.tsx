@@ -13,7 +13,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useProfile } from '../context/ProfileContext';
-import { calculateMacros, getMealPlan, askNutrition } from '../api/client';
+import { calculateMacros, getMealPlan, askNutrition, scanMealPhoto } from '../api/client';
 import {
   PageHeader,
   Card,
@@ -22,6 +22,7 @@ import {
   Button,
   Badge,
   Drawer,
+  Dialog,
   Skeleton,
   ErrorState,
   ProgressRing,
@@ -41,6 +42,12 @@ import {
   Send,
   Loader2,
   CheckCircle2,
+  Camera,
+  Upload,
+  Trash2,
+  X,
+  Plus,
+  AlertCircle,
 } from 'lucide-react';
 
 interface MealItem {
@@ -98,6 +105,52 @@ export function NutritionView() {
   const [askQuestion, setAskQuestion] = useState('');
   const [askAnswer, setAskAnswer] = useState<{ answer: string; sources: Array<{ source: string; page: number }> } | null>(null);
   const [isAsking, setIsAsking] = useState(false);
+
+  // AI Meal Scanner (Vision Macro Logger) State
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannedImage, setScannedImage] = useState<string | null>(null);
+  const [mimeType, setMimeType] = useState<string>('image/jpeg');
+  const [isAnalyzingMeal, setIsAnalyzingMeal] = useState(false);
+  const [targetMealSlot, setTargetMealSlot] = useState<string>('Lunch');
+  const [scanResult, setScanResult] = useState<{
+    meal_name: string;
+    confidence: string;
+    total_calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    food_items: Array<{
+      name: string;
+      portion_est: string;
+      calories: number;
+      protein_g: number;
+      carbs_g: number;
+      fat_g: number;
+    }>;
+    coaching_tip?: string;
+  } | null>(null);
+
+  // Saved / Logged meals for today (persisted in localStorage)
+  const [loggedMeals, setLoggedMeals] = useState<Array<{
+    id: string;
+    meal_name: string;
+    slot: string;
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    time: string;
+    image_url?: string;
+    food_items?: Array<{ name: string; portion_est: string; calories: number }>;
+  }>>(() => {
+    try {
+      const saved = localStorage.getItem('fitbot_logged_meals');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
@@ -211,6 +264,88 @@ export function NutritionView() {
     }
   };
 
+  // ── AI Meal Scanner Handlers ────────────────────────────────────────────────
+  const handleImageUpload = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setToast({ type: 'error', message: 'Please upload an image file (JPEG, PNG, WEBP).' });
+      return;
+    }
+    setMimeType(file.type);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const b64 = e.target?.result as string;
+      setScannedImage(b64);
+      setScanResult(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleScanMeal = async () => {
+    if (!scannedImage) {
+      setToast({ type: 'error', message: 'Please upload or capture a meal photo first.' });
+      return;
+    }
+
+    setIsAnalyzingMeal(true);
+    setScanResult(null);
+    try {
+      const result = await scanMealPhoto(scannedImage, mimeType, targetMealSlot);
+      setScanResult(result);
+      setToast({ type: 'success', message: `Identified: ${result.meal_name} (~${result.total_calories} kcal)` });
+    } catch (err: any) {
+      setToast({ type: 'error', message: err.message || 'Vision analysis failed. Please try a clearer photo.' });
+    } finally {
+      setIsAnalyzingMeal(false);
+    }
+  };
+
+  const handleCommitLoggedMeal = () => {
+    if (!scanResult) return;
+    const newEntry = {
+      id: `meal_${Date.now()}`,
+      meal_name: scanResult.meal_name,
+      slot: targetMealSlot,
+      calories: scanResult.total_calories,
+      protein_g: scanResult.protein_g,
+      carbs_g: scanResult.carbs_g,
+      fat_g: scanResult.fat_g,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      image_url: scannedImage || undefined,
+      food_items: scanResult.food_items.map((f) => ({
+        name: f.name,
+        portion_est: f.portion_est,
+        calories: f.calories,
+      })),
+    };
+
+    const updated = [newEntry, ...loggedMeals];
+    setLoggedMeals(updated);
+    try {
+      localStorage.setItem('fitbot_logged_meals', JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to save to localStorage', e);
+    }
+
+    setToast({
+      type: 'success',
+      message: `Logged ${scanResult.meal_name} to today's nutrition diary!`,
+    });
+    setIsScannerOpen(false);
+    setScannedImage(null);
+    setScanResult(null);
+  };
+
+  const handleDeleteLoggedMeal = (id: string) => {
+    const updated = loggedMeals.filter((m) => m.id !== id);
+    setLoggedMeals(updated);
+    try {
+      localStorage.setItem('fitbot_logged_meals', JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to save to localStorage', e);
+    }
+    setToast({ type: 'success', message: 'Meal entry removed.' });
+  };
+
   // Macro Donut Segments
   const macroSegments = useMemo(() => {
     if (!macroResult) return [];
@@ -252,6 +387,18 @@ export function NutritionView() {
           actionSlot={
             <div className="flex items-center gap-3">
               <Button
+                variant="accent"
+                size="md"
+                onClick={() => {
+                  setIsScannerOpen(true);
+                  setScanResult(null);
+                  setScannedImage(null);
+                }}
+                leftIcon={<Camera className="w-4 h-4" />}
+              >
+                Scan Meal (AI)
+              </Button>
+              <Button
                 variant="secondary"
                 size="md"
                 onClick={handlePrint}
@@ -260,7 +407,7 @@ export function NutritionView() {
                 Print Plan
               </Button>
               <Button
-                variant="primary"
+                variant="secondary"
                 size="md"
                 onClick={() => setIsAskDrawerOpen(true)}
                 leftIcon={<Sparkles className="w-4 h-4" />}
@@ -523,7 +670,374 @@ export function NutritionView() {
             </div>
           ) : null}
         </Card>
+
+        {/* Today's Scanned & Logged Meals Section */}
+        <Card
+          title="Today's Logged Meals & Food Scans"
+          subtitle="Instant plate recognition via Gemini Vision. Track your daily nutritional intake meal by meal."
+          action={
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={() => {
+                setIsScannerOpen(true);
+                setScanResult(null);
+                setScannedImage(null);
+              }}
+              leftIcon={<Camera className="w-3.5 h-3.5" />}
+            >
+              Scan New Meal
+            </Button>
+          }
+        >
+          {loggedMeals.length === 0 ? (
+            <div className="py-8 px-4 text-center border-2 border-dashed border-[var(--border-subtle)] rounded-2xl bg-[var(--bg-subtle)]/30 space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-[var(--accent-primary-subtle)] text-[var(--accent-text)] mx-auto flex items-center justify-center">
+                <Utensils className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-[var(--text-primary)]">No Meals Logged Yet Today</h4>
+                <p className="text-xs text-[var(--text-muted)] mt-1 max-w-sm mx-auto">
+                  Snap or upload a photo of your plate to auto-extract calories, protein, carbs, and fats.
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setIsScannerOpen(true);
+                  setScanResult(null);
+                  setScannedImage(null);
+                }}
+                leftIcon={<Camera className="w-3.5 h-3.5" />}
+              >
+                Scan First Meal
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Daily Logged Sums */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">Total Logged</span>
+                  <span className="text-sm font-black text-[var(--text-primary)] font-sans tabular-nums">
+                    {loggedMeals.reduce((acc, m) => acc + (m.calories || 0), 0)} <span className="text-[10px] font-normal text-[var(--text-muted)]">kcal</span>
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--macro-protein-text)] block">Protein</span>
+                  <span className="text-sm font-black text-[var(--macro-protein-text)] font-sans tabular-nums">
+                    {Math.round(loggedMeals.reduce((acc, m) => acc + (m.protein_g || 0), 0))}g
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--macro-carbs-text)] block">Carbs</span>
+                  <span className="text-sm font-black text-[var(--macro-carbs-text)] font-sans tabular-nums">
+                    {Math.round(loggedMeals.reduce((acc, m) => acc + (m.carbs_g || 0), 0))}g
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--macro-fat-text)] block">Fat</span>
+                  <span className="text-sm font-black text-[var(--macro-fat-text)] font-sans tabular-nums">
+                    {Math.round(loggedMeals.reduce((acc, m) => acc + (m.fat_g || 0), 0))}g
+                  </span>
+                </div>
+              </div>
+
+              {/* Logged Meal Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {loggedMeals.map((meal) => (
+                  <div
+                    key={meal.id}
+                    className="p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-subtle)] hover:border-[var(--border-prominent)] shadow-xs transition-all space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-[var(--accent-text)] uppercase tracking-wider">
+                            {meal.slot}
+                          </span>
+                          <span className="text-[11px] text-[var(--text-muted)] font-mono">
+                            {meal.time}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] mt-0.5 truncate" title={meal.meal_name}>
+                          {meal.meal_name}
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteLoggedMeal(meal.id)}
+                        className="text-[var(--text-muted)] hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        title="Delete meal entry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Calories & Macros Row */}
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-[var(--border-subtle)]">
+                      <span className="text-sm font-black text-[var(--text-primary)] font-sans tabular-nums">
+                        {meal.calories} <span className="text-[10px] font-normal text-[var(--text-muted)]">kcal</span>
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="protein" size="sm">P: {Math.round(meal.protein_g)}g</Badge>
+                        <Badge variant="carbs" size="sm">C: {Math.round(meal.carbs_g)}g</Badge>
+                        <Badge variant="fat" size="sm">F: {Math.round(meal.fat_g)}g</Badge>
+                      </div>
+                    </div>
+
+                    {/* Food Items Pills */}
+                    {meal.food_items && meal.food_items.length > 0 && (
+                      <div className="pt-2 flex flex-wrap gap-1.5">
+                        {meal.food_items.map((item, fIdx) => (
+                          <span
+                            key={fIdx}
+                            className="px-2 py-0.5 rounded-lg text-[10px] bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border-subtle)]"
+                          >
+                            {item.name} ({item.portion_est})
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
       </div>
+
+      {/* AI Meal Scanner Modal Dialog */}
+      {isScannerOpen && (
+        <Dialog
+          isOpen={isScannerOpen}
+          onClose={() => {
+            if (!isAnalyzingMeal) {
+              setIsScannerOpen(false);
+              setScanResult(null);
+              setScannedImage(null);
+            }
+          }}
+          title="AI Meal Scanner (Vision Macro Logger)"
+          description="Snap or upload a photo of your food plate to calculate calories and macros with Gemini Vision."
+          maxWidth="md"
+        >
+          <div className="space-y-5 pt-2">
+            {/* Meal Slot Selector */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] block">
+                Target Meal Time
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {['Breakfast', 'Lunch', 'Dinner', 'Post-Workout'].map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => setTargetMealSlot(slot)}
+                    className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                      targetMealSlot === slot
+                        ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-xs'
+                        : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:border-[var(--accent-primary)]/50'
+                    }`}
+                  >
+                    {slot}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Photo Upload / Drop Area */}
+            {!scannedImage ? (
+              <div className="border-2 border-dashed border-[var(--border-subtle)] hover:border-[var(--accent-primary)] rounded-2xl p-6 text-center bg-[var(--bg-subtle)]/40 transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="meal-photo-input"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleImageUpload(f);
+                  }}
+                />
+                <label
+                  htmlFor="meal-photo-input"
+                  className="cursor-pointer flex flex-col items-center justify-center space-y-3"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-[var(--accent-primary-subtle)] text-[var(--accent-text)] flex items-center justify-center shadow-xs">
+                    <Camera className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-[var(--text-primary)] block">
+                      Click to capture or upload food photo
+                    </span>
+                    <span className="text-[11px] text-[var(--text-muted)] mt-1 block">
+                      Supports JPG, PNG, WEBP from phone camera or gallery
+                    </span>
+                  </div>
+                </label>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Image Preview */}
+                <div className="relative rounded-2xl overflow-hidden border border-[var(--border-subtle)] max-h-64 bg-black/10 flex items-center justify-center">
+                  <img
+                    src={scannedImage}
+                    alt="Scanned Food Plate"
+                    className="w-full h-full object-cover max-h-64"
+                  />
+                  {!isAnalyzingMeal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScannedImage(null);
+                        setScanResult(null);
+                      }}
+                      className="absolute top-3 right-3 p-1.5 rounded-xl bg-black/60 text-white hover:bg-black/80 transition-colors cursor-pointer"
+                      title="Remove image"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Scan Button or Loading State */}
+                {!scanResult && (
+                  <div className="flex justify-center pt-1">
+                    <Button
+                      variant="primary"
+                      size="md"
+                      onClick={handleScanMeal}
+                      disabled={isAnalyzingMeal}
+                      leftIcon={isAnalyzingMeal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      className="w-full sm:w-auto px-8"
+                    >
+                      {isAnalyzingMeal ? 'Analyzing Plate with Gemini Vision...' : 'Analyze Meal & Extract Macros'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Vision Scan Result Display */}
+            {scanResult && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border-prominent)] space-y-4 animate-in fade-in-0 duration-200">
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="accent" size="sm">
+                        Confidence: {scanResult.confidence}
+                      </Badge>
+                      <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider font-semibold">
+                        {targetMealSlot}
+                      </span>
+                    </div>
+                    <h4 className="text-base font-bold text-[var(--text-primary)] mt-1">
+                      {scanResult.meal_name}
+                    </h4>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-xl font-black text-[var(--text-primary)] font-sans tabular-nums block">
+                      {scanResult.total_calories}
+                    </span>
+                    <span className="text-[10px] text-[var(--text-muted)] uppercase font-semibold">
+                      Total kcal
+                    </span>
+                  </div>
+                </div>
+
+                {/* Macro Badges Row */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-2.5 rounded-xl bg-[var(--macro-protein-subtle)] border border-[var(--macro-protein-border)] text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--macro-protein-text)] block">
+                      Protein
+                    </span>
+                    <span className="text-base font-black text-[var(--macro-protein-text)] font-sans tabular-nums">
+                      {scanResult.protein_g}g
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-[var(--macro-carbs-subtle)] border border-[var(--macro-carbs-border)] text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--macro-carbs-text)] block">
+                      Carbs
+                    </span>
+                    <span className="text-base font-black text-[var(--macro-carbs-text)] font-sans tabular-nums">
+                      {scanResult.carbs_g}g
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-[var(--macro-fat-subtle)] border border-[var(--macro-fat-border)] text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--macro-fat-text)] block">
+                      Dietary Fat
+                    </span>
+                    <span className="text-base font-black text-[var(--macro-fat-text)] font-sans tabular-nums">
+                      {scanResult.fat_g}g
+                    </span>
+                  </div>
+                </div>
+
+                {/* Individual Food Items Table */}
+                {scanResult.food_items && scanResult.food_items.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">
+                      Identified Plate Components
+                    </span>
+                    <div className="divide-y divide-[var(--border-subtle)] bg-[var(--bg-card)] rounded-xl border border-[var(--border-subtle)] p-2">
+                      {scanResult.food_items.map((item, idx) => (
+                        <div key={idx} className="py-2 px-2 flex items-center justify-between text-xs">
+                          <div>
+                            <span className="font-bold text-[var(--text-primary)] block">
+                              {item.name}
+                            </span>
+                            <span className="text-[11px] text-[var(--text-muted)]">
+                              {item.portion_est}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold font-sans tabular-nums text-[var(--text-primary)] block">
+                              {item.calories} kcal
+                            </span>
+                            <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                              P: {item.protein_g}g · C: {item.carbs_g}g · F: {item.fat_g}g
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Sports Nutrition Coaching Tip */}
+                {scanResult.coaching_tip && (
+                  <div className="p-3 rounded-xl bg-[var(--accent-primary-subtle)] border-l-2 border-[var(--accent-primary)] text-xs text-[var(--text-secondary)] italic leading-relaxed">
+                    "{scanResult.coaching_tip}"
+                  </div>
+                )}
+
+                {/* Confirm & Log Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setScanResult(null);
+                      setScannedImage(null);
+                    }}
+                  >
+                    Rescan
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleCommitLoggedMeal}
+                    leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  >
+                    Add to Today's Diary
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Dialog>
+      )}
 
       {/* "Ask the Guides" Drawer */}
       <Drawer
