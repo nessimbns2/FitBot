@@ -164,3 +164,40 @@ class MessageRead(SQLModel):
     content: str
     sources: Optional[str] = None
     created_at: datetime
+
+
+# ── Somatotype Quiz Schemas ───────────────────────────────────────────────────
+
+class SomatotypeQuestionOption(SQLModel):
+    value: str
+    label: str
+    detail: str
+    archetype: Somatotype
+
+
+class SomatotypeQuestion(SQLModel):
+    id: str
+    title: str
+    question: str
+    options: List[SomatotypeQuestionOption]
+
+
+class SomatotypeQuizRequest(SQLModel):
+    wrist_structure: str = Field(description="Answer value for wrist structure question")
+    body_frame: str = Field(description="Answer value for body frame question")
+    weight_tendency: str = Field(description="Answer value for weight tendency question")
+    muscle_definition: str = Field(description="Answer value for muscle definition question")
+    carb_response: str = Field(description="Answer value for carb response question")
+    auto_apply: bool = Field(default=False, description="Automatically update user profile with predicted somatotype")
+
+
+class SomatotypeQuizResponse(SQLModel):
+    predicted_somatotype: Somatotype
+    confidence: str
+    secondary_traits: Optional[str] = None
+    traits_summary: str
+    training_focus: str
+    nutrition_focus: str
+    macro_shift_note: str
+    profile_updated: bool = False
+

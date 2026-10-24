@@ -45,6 +45,18 @@ export async function updateProfile(data) {
   });
 }
 
+export async function getSomatotypeQuestions() {
+  return request('/api/user/somatotype-questions');
+}
+
+export async function predictSomatotype(data) {
+  return request('/api/user/predict-somatotype', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+
 export async function listSessions() {
   return request('/api/user/sessions');
 }

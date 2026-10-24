@@ -116,6 +116,8 @@ const SOMATOTYPE_OPTIONS: SomatotypeOption[] = [
   },
 ];
 
+import { SomatotypeQuizModal } from '../components/SomatotypeQuizModal';
+
 export function ProfileView() {
   const { profile, isLoading, update, needsOnboarding } = useProfile();
   const [formData, setFormData] = useState<Partial<UserProfile>>({});
@@ -129,6 +131,9 @@ export function ProfileView() {
   // Onboarding wizard state
   const [showWizard, setShowWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState<number>(1);
+
+  // Somatotype diagnostic quiz modal state
+  const [showSomatotypeQuiz, setShowSomatotypeQuiz] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -483,9 +488,19 @@ export function ProfileView() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] block mb-2">
-                    Somatotype (Metabolic Tendency)
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] block">
+                      Somatotype (Metabolic Tendency)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowSomatotypeQuiz(true)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--accent-primary)] hover:underline cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+                      Not sure? Take AI Quiz
+                    </button>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {SOMATOTYPE_OPTIONS.map((s) => {
                       const isSelected = formData.somatotype === s.id;
@@ -737,6 +752,18 @@ export function ProfileView() {
             onClose={() => setToast(null)}
           />
         )}
+
+        <SomatotypeQuizModal
+          isOpen={showSomatotypeQuiz}
+          onClose={() => setShowSomatotypeQuiz(false)}
+          onApplySomatotype={(predicted) => {
+            handleChange('somatotype', predicted);
+            setToast({
+              type: 'success',
+              message: `Somatotype updated to ${predicted.toUpperCase()} based on AI assessment. Click 'Save Profile' to lock it in.`,
+            });
+          }}
+        />
       </div>
     </div>
   );

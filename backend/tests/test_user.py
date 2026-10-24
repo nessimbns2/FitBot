@@ -111,3 +111,45 @@ def test_session_delete_cascades_messages(client, session):
     import pytest
     with pytest.raises(Exception):
         get_session_messages(session, s.id)
+
+
+def test_get_somatotype_questions(client: TestClient):
+    """Test retrieving the 5 somatotype diagnostic assessment questions."""
+    resp = client.get("/api/user/somatotype-questions")
+    assert resp.status_code == 200
+    questions = resp.json()
+    assert len(questions) == 5
+    for q in questions:
+        assert "id" in q
+        assert "question" in q
+        assert len(q["options"]) == 3
+        for opt in q["options"]:
+            assert "value" in opt
+            assert "archetype" in opt
+
+
+def test_predict_somatotype_and_auto_apply(client: TestClient, session: Session):
+    """Test predicting somatotype from answers and auto-applying to user profile."""
+    payload = {
+        "wrist_structure": "fingers_overlap",
+        "body_frame": "narrow_linear",
+        "weight_tendency": "hardgainer",
+        "muscle_definition": "lean_low_muscle",
+        "carb_response": "high_energy",
+        "auto_apply": True,
+    }
+    resp = client.post("/api/user/predict-somatotype", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["predicted_somatotype"] == "ectomorph"
+    assert data["profile_updated"] is True
+    assert "carbohydrate" in data["traits_summary"].lower() or "slender" in data["traits_summary"].lower()
+    assert "training_focus" in data
+    assert "nutrition_focus" in data
+    assert "macro_shift_note" in data
+
+    # Verify database profile was updated
+    prof_resp = client.get("/api/user/profile")
+    assert prof_resp.status_code == 200
+    assert prof_resp.json()["somatotype"] == "ectomorph"
+

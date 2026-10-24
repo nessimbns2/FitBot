@@ -56,3 +56,19 @@ def get_session_messages(session_id: str, session: SessionDep):
 def delete_session(session_id: str, session: SessionDep):
     """Delete a session and all its messages."""
     service.delete_session(session, session_id)
+
+
+# ── Somatotype Assessment ─────────────────────────────────────────────────────
+
+
+@router.get("/somatotype-questions")
+def get_somatotype_questions():
+    """Return the official 5 diagnostic questions for somatotype prediction."""
+    return service.get_somatotype_questions()
+
+
+@router.post("/predict-somatotype", response_model=models.SomatotypeQuizResponse)
+def predict_somatotype(req: models.SomatotypeQuizRequest, session: SessionDep):
+    """Analyze assessment answers and return the predicted somatotype with training/nutrition advice."""
+    return service.predict_somatotype(session, req)
+
