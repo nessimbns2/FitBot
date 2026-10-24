@@ -1,0 +1,52 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env.local
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+.env.*
+*.env
+**/.env
+
+# ── Database ──────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── FAISS / vectorstore indexes ───────────────────────────────────────────────
+**/vectorstore/*.faiss
+**/vectorstore/*.json
+**/vectorstore/state.json
+
+# ── Node ──────────────────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ── IDE / OS ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Pytest / coverage ─────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+reports/
+
+# ── Alembic (added in Phase 9) ────────────────────────────────────────────────
+# backend/alembic/versions/*.py  # keep under version control

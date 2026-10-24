@@ -1,0 +1,1545 @@
+"""
+scripts/generate_exercises.py
+Generate backend/app/modules/exercises/data/exercises.json with 56 validated exercises.
+"""
+
+import json
+from pathlib import Path
+
+exercises = [
+    # --- CHEST (8) ---
+    {
+        "id": "barbell-bench-press",
+        "name": "Barbell Bench Press",
+        "primary_muscle": "chest",
+        "secondary_muscles": ["delts", "arms"],
+        "equipment": "barbell",
+        "movement_pattern": "horizontal_push",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Lie flat on the bench with eyes directly under the bar",
+            "Plant feet firmly on the floor",
+            "Grip bar slightly wider than shoulder-width and retract shoulder blades"
+        ],
+        "form_cues": [
+            "Lower bar under control to mid-chest / sternum",
+            "Keep wrists stacked over elbows",
+            "Drive feet into floor as you press upward"
+        ],
+        "common_mistakes": [
+            "Flaring elbows out at 90 degrees",
+            "Bouncing bar off the sternum"
+        ],
+        "injury_prevention": [
+            "Tuck elbows to roughly 45-75 degrees to protect the shoulder joint"
+        ]
+    },
+    {
+        "id": "incline-dumbbell-press",
+        "name": "Incline Dumbbell Press",
+        "primary_muscle": "chest",
+        "secondary_muscles": ["delts", "arms"],
+        "equipment": "dumbbell",
+        "movement_pattern": "horizontal_push",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Set bench to 30-45 degree incline",
+            "Sit back and kick dumbbells up with knees to shoulders",
+            "Retract scapulae and plant feet firmly"
+        ],
+        "form_cues": [
+            "Press dumbbells up and slightly inward without clanking",
+            "Control descent to stretch upper pectorals",
+            "Maintain a slight natural arch in the lower back"
+        ],
+        "common_mistakes": [
+            "Incline set too steep turning into shoulder press",
+            "Dropping elbows too low under excessive strain"
+        ],
+        "injury_prevention": [
+            "Keep dumbbells aligned at 45 degrees rather than straight flared out"
+        ]
+    },
+    {
+        "id": "cable-chest-fly",
+        "name": "Cable Chest Fly",
+        "primary_muscle": "chest",
+        "secondary_muscles": ["delts"],
+        "equipment": "cables",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Set cable pulleys to chest height or slightly higher",
+            "Take one handle in each hand and step forward into a staggered stance",
+            "Maintain a slight bend in both elbows"
+        ],
+        "form_cues": [
+            "Bring handles together in front of chest in a hugging motion",
+            "Squeeze pectorals hard at peak contraction",
+            "Control the eccentric stretch slowly"
+        ],
+        "common_mistakes": [
+            "Bending and extending elbows like a press",
+            "Allowing shoulders to roll forward at the stretch"
+        ],
+        "injury_prevention": [
+            "Do not over-stretch shoulders backward past active chest control"
+        ]
+    },
+    {
+        "id": "push-up",
+        "name": "Standard Push-Up",
+        "primary_muscle": "chest",
+        "secondary_muscles": ["arms", "core", "delts"],
+        "equipment": "bodyweight",
+        "movement_pattern": "horizontal_push",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Place hands shoulder-width apart on the floor",
+            "Extend legs with feet together forming a rigid plank",
+            "Engage glutes and core"
+        ],
+        "form_cues": [
+            "Lower chest until 2-3 inches off the ground",
+            "Keep elbows at approximately 45 degrees to the torso",
+            "Push the floor away through palms to full lockout"
+        ],
+        "common_mistakes": [
+            "Sagging lower back or hips",
+            "Tucking chin downward to touch chest prematurely"
+        ],
+        "injury_prevention": [
+            "Maintain full body tension to prevent lumbar hyperextension"
+        ]
+    },
+    {
+        "id": "dips-chest-focus",
+        "name": "Chest Dips",
+        "primary_muscle": "chest",
+        "secondary_muscles": ["arms", "delts"],
+        "equipment": "bodyweight",
+        "movement_pattern": "vertical_push",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Mount parallel dip bars with arms extended",
+            "Lean torso forward about 30 degrees",
+            "Bend knees and cross ankles"
+        ],
+        "form_cues": [
+            "Lower down until upper arms are parallel to floor",
+            "Maintain forward torso lean throughout",
+            "Drive through palms back to top position"
+        ],
+        "common_mistakes": [
+            "Staying too upright shifting stress entirely to triceps",
+            "Dropping too deep causing anterior shoulder impingement"
+        ],
+        "injury_prevention": [
+            "Stop descent when shoulders reach elbow height to protect AC joints"
+        ]
+    },
+    {
+        "id": "flat-dumbbell-press",
+        "name": "Flat Dumbbell Press",
+        "primary_muscle": "chest",
+        "secondary_muscles": ["delts", "arms"],
+        "equipment": "dumbbell",
+        "movement_pattern": "horizontal_push",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Sit on flat bench with dumbbells resting on thighs",
+            "Lie back bringing weights to sides of chest",
+            "Set shoulder blades together into the bench"
+        ],
+        "form_cues": [
+            "Press weights upward converging slightly over mid-chest",
+            "Lower with 2-second eccentric phase",
+            "Keep forearms perpendicular to the floor"
+        ],
+        "common_mistakes": [
+            "Letting dumbbells drift toward belly button",
+            "Lifting feet off the floor"
+        ],
+        "injury_prevention": [
+            "Do not let elbows drop significantly below the bench surface"
+        ]
+    },
+    {
+        "id": "decline-barbell-bench-press",
+        "name": "Decline Barbell Bench Press",
+        "primary_muscle": "chest",
+        "secondary_muscles": ["arms"],
+        "equipment": "barbell",
+        "movement_pattern": "horizontal_push",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Secure shins under decline bench ankle pads",
+            "Lie back and grip bar slightly wider than shoulder width",
+            "Unrack bar with arms locked"
+        ],
+        "form_cues": [
+            "Lower bar to lower chest line",
+            "Keep elbows at 45 degrees to torso",
+            "Press straight up to lockout"
+        ],
+        "common_mistakes": [
+            "Unracking without a spotter or proper safety catches",
+            "Bouncing weight off lower ribs"
+        ],
+        "injury_prevention": [
+            "Always ensure feet and shins are firmly locked into pads before lifting"
+        ]
+    },
+    {
+        "id": "cable-crossover-low-to-high",
+        "name": "Low-to-High Cable Fly",
+        "primary_muscle": "chest",
+        "secondary_muscles": ["delts"],
+        "equipment": "cables",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "intermediate",
+        "setup": [
+            "Set pulleys to lowest position",
+            "Grip D-handles with palms facing up and forward",
+            "Step forward with one foot for balance"
+        ],
+        "form_cues": [
+            "Scoop hands upward and inward toward clavicle height",
+            "Squeeze clavicular head of pectorals at top",
+            "Lower slowly resisting the cable pull"
+        ],
+        "common_mistakes": [
+            "Using momentum from lower back extension",
+            "Bending elbows into a bicep curl"
+        ],
+        "injury_prevention": [
+            "Keep core tight and avoid leaning excessively back during upward phase"
+        ]
+    },
+
+    # --- BACK (8) ---
+    {
+        "id": "barbell-deadlift",
+        "name": "Conventional Barbell Deadlift",
+        "primary_muscle": "back",
+        "secondary_muscles": ["hamstrings", "quads", "core"],
+        "equipment": "barbell",
+        "movement_pattern": "hinge",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Stand with feet hip-width apart, bar over midfoot",
+            "Hinge at hips and grip bar outside legs",
+            "Pull chest up, drop hips slightly, and engage lats"
+        ],
+        "form_cues": [
+            "Push the floor away through midfoot and heels",
+            "Keep bar in contact with shins and thighs",
+            "Lock out by squeezing glutes at the top"
+        ],
+        "common_mistakes": [
+            "Rounding the lumbar spine under load",
+            "Hyperextending lower back at lockout"
+        ],
+        "injury_prevention": [
+            "Set back flat before initiating pull; never jerk bar off the floor"
+        ]
+    },
+    {
+        "id": "barbell-bent-over-row",
+        "name": "Barbell Bent-Over Row",
+        "primary_muscle": "back",
+        "secondary_muscles": ["arms", "delts"],
+        "equipment": "barbell",
+        "movement_pattern": "horizontal_pull",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Stand with barbell over midfoot",
+            "Hinge torso forward to roughly 45 degrees with flat back",
+            "Grip bar with overhand shoulder-width grip"
+        ],
+        "form_cues": [
+            "Pull bar toward lower abdomen / navel",
+            "Drive elbows back and squeeze scapulae together",
+            "Lower under full control without dropping torso"
+        ],
+        "common_mistakes": [
+            "Using excessive hip drive to heave the weight",
+            "Standing too upright turning it into a shrug"
+        ],
+        "injury_prevention": [
+            "Brace abdominal wall to maintain rigid lumbar spine throughout"
+        ]
+    },
+    {
+        "id": "pull-up",
+        "name": "Pull-Up",
+        "primary_muscle": "back",
+        "secondary_muscles": ["arms", "core"],
+        "equipment": "bodyweight",
+        "movement_pattern": "vertical_pull",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Grip pull-up bar with overhand grip wider than shoulders",
+            "Hang at full arm extension with engaged shoulders",
+            "Cross ankles and tuck pelvis slightly"
+        ],
+        "form_cues": [
+            "Drive elbows down and back toward your ribs",
+            "Pull until chin clears the bar or upper chest touches",
+            "Lower under control to full dead hang"
+        ],
+        "common_mistakes": [
+            "Kipping or swinging legs for momentum",
+            "Partial reps failing to achieve full extension"
+        ],
+        "injury_prevention": [
+            "Control eccentric descent to avoid sudden shoulder jerks at the bottom"
+        ]
+    },
+    {
+        "id": "lat-pulldown",
+        "name": "Cable Lat Pulldown",
+        "primary_muscle": "back",
+        "secondary_muscles": ["arms", "delts"],
+        "equipment": "cables",
+        "movement_pattern": "vertical_pull",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Adjust thigh pad so legs are locked firmly",
+            "Grip wide bar with overhand grip",
+            "Sit down, chest lifted with slight backward torso lean"
+        ],
+        "form_cues": [
+            "Pull bar down smoothly toward upper chest / collarbone",
+            "Depress shoulder blades down into back pockets",
+            "Slowly extend arms back to starting stretch"
+        ],
+        "common_mistakes": [
+            "Pulling bar behind the neck",
+            "Swinging torso backward to use bodyweight momentum"
+        ],
+        "injury_prevention": [
+            "Always pull to front of chest to prevent cervical and shoulder strain"
+        ]
+    },
+    {
+        "id": "seated-cable-row",
+        "name": "Seated Cable Row",
+        "primary_muscle": "back",
+        "secondary_muscles": ["arms", "delts"],
+        "equipment": "cables",
+        "movement_pattern": "horizontal_pull",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Sit on cable row bench with feet on footplates and slight knee bend",
+            "Grip V-bar handle with both hands",
+            "Sit upright with chest tall and spine neutral"
+        ],
+        "form_cues": [
+            "Pull handle into lower sternum / navel",
+            "Retract shoulder blades fully at peak pull",
+            "Resist the weight forward without rounding back"
+        ],
+        "common_mistakes": [
+            "Excessive rocking forward and backward from lower back",
+            "Shrugging shoulders up toward ears"
+        ],
+        "injury_prevention": [
+            "Keep knees slightly bent and spine upright to protect lumbar discs"
+        ]
+    },
+    {
+        "id": "one-arm-dumbbell-row",
+        "name": "One-Arm Dumbbell Row",
+        "primary_muscle": "back",
+        "secondary_muscles": ["arms", "core"],
+        "equipment": "dumbbell",
+        "movement_pattern": "horizontal_pull",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Place knee and same-side hand on flat bench",
+            "Opposite foot flat on the floor for sturdy tripod base",
+            "Hold dumbbell in free hand hanging directly below shoulder"
+        ],
+        "form_cues": [
+            "Pull dumbbell toward hip crease driving elbow to ceiling",
+            "Keep torso parallel to bench without twisting spine",
+            "Lower weight with controlled stretch"
+        ],
+        "common_mistakes": [
+            "Rotating torso excessively to hoist the weight",
+            "Pulling straight up to armpit instead of back toward hip"
+        ],
+        "injury_prevention": [
+            "Keep supporting arm active and neck neutral with eyes on bench"
+        ]
+    },
+    {
+        "id": "inverted-row",
+        "name": "Inverted Bodyweight Row",
+        "primary_muscle": "back",
+        "secondary_muscles": ["arms", "core"],
+        "equipment": "bodyweight",
+        "movement_pattern": "horizontal_pull",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Set a barbell in a rack at waist height",
+            "Lie under bar and grip with overhand grip slightly wider than shoulders",
+            "Hang with heels on floor and body in rigid straight plank"
+        ],
+        "form_cues": [
+            "Pull chest up until it touches or nears the bar",
+            "Squeeze shoulder blades hard at top",
+            "Lower smoothly to full elbow extension"
+        ],
+        "common_mistakes": [
+            "Sagging hips during the pull",
+            "Reaching neck forward to touch bar"
+        ],
+        "injury_prevention": [
+            "Keep glutes and abs braced to protect lower back posture"
+        ]
+    },
+    {
+        "id": "dumbbell-chest-supported-row",
+        "name": "Incline Dumbbell Chest-Supported Row",
+        "primary_muscle": "back",
+        "secondary_muscles": ["delts", "arms"],
+        "equipment": "dumbbell",
+        "movement_pattern": "horizontal_pull",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Set bench to 30-45 degree incline",
+            "Lie chest-down against pad with feet planted behind",
+            "Hold dumbbells hanging naturally below shoulders"
+        ],
+        "form_cues": [
+            "Pull dumbbells up and back driving elbows past ribs",
+            "Pinch shoulder blades together at top contraction",
+            "Lower weights slowly to full stretch"
+        ],
+        "common_mistakes": [
+            "Lifting chest off pad to cheat reps",
+            "Jerking neck up during pull"
+        ],
+        "injury_prevention": [
+            "Keep chest glued to the pad to eliminate lower back spinal load completely"
+        ]
+    },
+
+    # --- QUADS (8) ---
+    {
+        "id": "barbell-back-squat",
+        "name": "Barbell Back Squat",
+        "primary_muscle": "quads",
+        "secondary_muscles": ["hamstrings", "core"],
+        "equipment": "barbell",
+        "movement_pattern": "squat",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Rest bar on upper traps (high bar) or rear delts (low bar)",
+            "Step back, feet shoulder-width apart, toes flared 15-30 degrees",
+            "Take deep belly breath and brace core"
+        ],
+        "form_cues": [
+            "Sit hips down and push knees out tracking toes",
+            "Descend until hip crease is at or below knee level",
+            "Drive up spreading floor with feet keeping chest proud"
+        ],
+        "common_mistakes": [
+            "Knees caving inward (valgus collapse)",
+            "Heels lifting off the ground during descent"
+        ],
+        "injury_prevention": [
+            "Maintain neutral lumbar spine throughout; do not let lower back round"
+        ]
+    },
+    {
+        "id": "barbell-front-squat",
+        "name": "Barbell Front Squat",
+        "primary_muscle": "quads",
+        "secondary_muscles": ["core"],
+        "equipment": "barbell",
+        "movement_pattern": "squat",
+        "is_compound": True,
+        "difficulty": "advanced",
+        "setup": [
+            "Rest bar across front deltoids near throat",
+            "Grip with fingertips or cross-arm grip with elbows pointing high",
+            "Set stance shoulder-width apart"
+        ],
+        "form_cues": [
+            "Keep elbows driven up high throughout entire movement",
+            "Descend straight down with near-vertical torso",
+            "Drive through midfoot to stand up tall"
+        ],
+        "common_mistakes": [
+            "Letting elbows drop causing bar to slip forward",
+            "Collapsing chest forward"
+        ],
+        "injury_prevention": [
+            "Maintain high elbow drive to keep spine erect and bar secure on shoulders"
+        ]
+    },
+    {
+        "id": "goblet-squat",
+        "name": "Dumbbell Goblet Squat",
+        "primary_muscle": "quads",
+        "secondary_muscles": ["core", "hamstrings"],
+        "equipment": "dumbbell",
+        "movement_pattern": "squat",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Hold single dumbbell vertically against chest with palms cupping top plate",
+            "Set feet shoulder-width apart with slight toe flare",
+            "Brace core and keep chest upright"
+        ],
+        "form_cues": [
+            "Squat down between knees keeping elbows inside thighs at bottom",
+            "Hit parallel or deeper with flat feet",
+            "Push through heels and midfoot to return to top"
+        ],
+        "common_mistakes": [
+            "Allowing weight to pull chest forward",
+            "Knees tracking inside foot line"
+        ],
+        "injury_prevention": [
+            "Keep weight firmly pinned against chest to prevent spinal flexion"
+        ]
+    },
+    {
+        "id": "dumbbell-walking-lunge",
+        "name": "Dumbbell Walking Lunge",
+        "primary_muscle": "quads",
+        "secondary_muscles": ["hamstrings", "core"],
+        "equipment": "dumbbell",
+        "movement_pattern": "lunge",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Stand tall holding dumbbells at sides",
+            "Engage core and look forward",
+            "Ensure clear straight walking path"
+        ],
+        "form_cues": [
+            "Take comfortable stride forward landing heel-to-toe",
+            "Lower until back knee gently taps or hovers 1 inch above floor",
+            "Drive through front heel directly into next stride"
+        ],
+        "common_mistakes": [
+            "Taking too short a step pushing front knee excessively past toes",
+            "Torso leaning forward uncontrollably"
+        ],
+        "injury_prevention": [
+            "Keep front knee aligned over second toe to protect patellar tendon"
+        ]
+    },
+    {
+        "id": "bodyweight-air-squat",
+        "name": "Bodyweight Air Squat",
+        "primary_muscle": "quads",
+        "secondary_muscles": ["hamstrings", "core"],
+        "equipment": "bodyweight",
+        "movement_pattern": "squat",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Stand with feet slightly wider than hips",
+            "Extend arms forward for counterbalance",
+            "Engage core muscles"
+        ],
+        "form_cues": [
+            "Hinge hips back and bend knees simultaneously",
+            "Descend until thighs break parallel to floor",
+            "Drive up evenly through feet to full hip extension"
+        ],
+        "common_mistakes": [
+            "Initiating movement purely with knees bending forward",
+            "Rounding back at bottom"
+        ],
+        "injury_prevention": [
+            "Keep whole foot rooted to the ground and chest upright"
+        ]
+    },
+    {
+        "id": "bulgarian-split-squat-bodyweight",
+        "name": "Bodyweight Bulgarian Split Squat",
+        "primary_muscle": "quads",
+        "secondary_muscles": ["hamstrings", "core"],
+        "equipment": "bodyweight",
+        "movement_pattern": "lunge",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Stand 2-3 feet in front of a flat bench",
+            "Place top of rear foot laces-down on the bench",
+            "Keep hips squared and torso tall"
+        ],
+        "form_cues": [
+            "Lower hips down and slightly back until front thigh is parallel",
+            "Keep front shin relatively vertical",
+            "Drive through front foot heel to return to top"
+        ],
+        "common_mistakes": [
+            "Placing front foot too close to bench jamming knee joint",
+            "Tilting hips sideways"
+        ],
+        "injury_prevention": [
+            "Ensure stable balance before initiating descent to prevent ankle roll"
+        ]
+    },
+    {
+        "id": "cable-leg-extension",
+        "name": "Cable Leg Extension",
+        "primary_muscle": "quads",
+        "secondary_muscles": [],
+        "equipment": "cables",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Attach ankle strap to low cable pulley and fasten around right ankle",
+            "Sit on bench facing away from cable stack",
+            "Grip sides of bench for stability"
+        ],
+        "form_cues": [
+            "Extend knee until leg is straight out in front",
+            "Hold quad contraction at full lockout for 1 second",
+            "Lower slowly resisting cable tension back to 90 degrees"
+        ],
+        "common_mistakes": [
+            "Swinging torso backward to generate momentum",
+            "Letting knee hyperextend violently"
+        ],
+        "injury_prevention": [
+            "Maintain controlled tempo and avoid slamming weights at bottom"
+        ]
+    },
+    {
+        "id": "cable-squat",
+        "name": "Cable Squat",
+        "primary_muscle": "quads",
+        "secondary_muscles": ["hamstrings", "core"],
+        "equipment": "cables",
+        "movement_pattern": "squat",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Attach straight bar or rope to lowest pulley setting",
+            "Grip attachment at chest level and step back 2 feet",
+            "Set feet shoulder-width apart"
+        ],
+        "form_cues": [
+            "Squat down keeping torso upright against the forward cable pull",
+            "Descend to parallel thighs",
+            "Drive through heels back to standing"
+        ],
+        "common_mistakes": [
+            "Leaning too far backward relying on cable to hold bodyweight",
+            "Letting cable pull shoulders forward"
+        ],
+        "injury_prevention": [
+            "Keep core tightly braced to counter the horizontal shear force"
+        ]
+    },
+
+    # --- HAMSTRINGS (8) ---
+    {
+        "id": "barbell-romanian-deadlift",
+        "name": "Barbell Romanian Deadlift (RDL)",
+        "primary_muscle": "hamstrings",
+        "secondary_muscles": ["back", "core"],
+        "equipment": "barbell",
+        "movement_pattern": "hinge",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Hold barbell at thighs with overhand grip",
+            "Stand with feet hip-width apart and knees soft (slight bend)",
+            "Retract shoulder blades and brace core"
+        ],
+        "form_cues": [
+            "Hinge hips backward as if touching a wall behind you",
+            "Slide bar down thighs keeping it close to shins",
+            "Stop when you feel full hamstring stretch and reverse by thrusting hips forward"
+        ],
+        "common_mistakes": [
+            "Bending knees into a squat",
+            "Rounding lower spine as bar travels lower"
+        ],
+        "injury_prevention": [
+            "Only go as deep as hamstring mobility allows without spinal rounding"
+        ]
+    },
+    {
+        "id": "dumbbell-romanian-deadlift",
+        "name": "Dumbbell Romanian Deadlift",
+        "primary_muscle": "hamstrings",
+        "secondary_muscles": ["back", "core"],
+        "equipment": "dumbbell",
+        "movement_pattern": "hinge",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Hold pair of dumbbells in front of thighs",
+            "Stand hip-width with knees slightly unlocked",
+            "Engage lats to keep dumbbells close to legs"
+        ],
+        "form_cues": [
+            "Push hips back smoothly maintaining fixed knee angle",
+            "Lower dumbbells down shin level until hamstrings are taut",
+            "Squeeze glutes and hamstrings to stand tall"
+        ],
+        "common_mistakes": [
+            "Letting dumbbells drift away from legs",
+            "Rounding shoulders forward"
+        ],
+        "injury_prevention": [
+            "Keep dumbbells glued to legs to reduce leverage on the lower spine"
+        ]
+    },
+    {
+        "id": "single-leg-dumbbell-deadlift",
+        "name": "Single-Leg Dumbbell RDL",
+        "primary_muscle": "hamstrings",
+        "secondary_muscles": ["core"],
+        "equipment": "dumbbell",
+        "movement_pattern": "hinge",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Stand balancing on right leg with dumbbell in left hand",
+            "Keep right knee soft and hips level",
+            "Find a focus point on the floor 6 feet ahead"
+        ],
+        "form_cues": [
+            "Hinge forward sending non-working leg straight back",
+            "Lower until torso is nearly parallel to floor",
+            "Drive through working foot heel to return upright"
+        ],
+        "common_mistakes": [
+            "Allowing non-working hip to rotate open toward ceiling",
+            "Losing balance by rushing reps"
+        ],
+        "injury_prevention": [
+            "Keep hips square to floor to avoid torsional stress on sacrum"
+        ]
+    },
+    {
+        "id": "cable-pull-through",
+        "name": "Cable Pull-Through",
+        "primary_muscle": "hamstrings",
+        "secondary_muscles": ["core"],
+        "equipment": "cables",
+        "movement_pattern": "hinge",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Attach rope to low pulley",
+            "Straddle cable facing away from stack, holding rope between legs",
+            "Walk forward a few paces until tension is felt"
+        ],
+        "form_cues": [
+            "Hinge at hips reaching hands back through legs",
+            "Keep back flat and knees soft",
+            "Thrust hips forward and squeeze glutes and hamstrings at lockout"
+        ],
+        "common_mistakes": [
+            "Squatting down instead of hinging back",
+            "Pulling with arms instead of driving with hips"
+        ],
+        "injury_prevention": [
+            "Do not hyperextend spine at top; finish with vertical pelvis"
+        ]
+    },
+    {
+        "id": "cable-standing-leg-curl",
+        "name": "Cable Standing Leg Curl",
+        "primary_muscle": "hamstrings",
+        "secondary_muscles": [],
+        "equipment": "cables",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Attach ankle cuff to lowest pulley",
+            "Secure cuff to ankle facing the machine",
+            "Hold machine frame for steady support"
+        ],
+        "form_cues": [
+            "Curl heel upward toward glutes",
+            "Keep knees aligned with each other",
+            "Lower weight with controlled eccentric return"
+        ],
+        "common_mistakes": [
+            "Swinging knee forward before curling",
+            "Arching lower back to hoist the weight"
+        ],
+        "injury_prevention": [
+            "Keep pelvis neutral and do not jerk weight with hip flexors"
+        ]
+    },
+    {
+        "id": "nordic-hamstring-curl",
+        "name": "Nordic Hamstring Curl",
+        "primary_muscle": "hamstrings",
+        "secondary_muscles": ["core"],
+        "equipment": "bodyweight",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "advanced",
+        "setup": [
+            "Kneel on padded surface with ankles secured under sturdy anchor or held by partner",
+            "Keep hips fully extended forming straight line from knees to head",
+            "Cross arms over chest or keep hands ready to catch floor"
+        ],
+        "form_cues": [
+            "Lower body forward slowly purely by resisting with hamstrings",
+            "Keep hips locked in extension without hinging",
+            "Catch yourself with hands on floor when unable to hold"
+        ],
+        "common_mistakes": [
+            "Breaking at the hips and sticking butt backward",
+            "Crashing down onto floor without control"
+        ],
+        "injury_prevention": [
+            "Use hands to absorb impact at bottom and push back up smoothly"
+        ]
+    },
+    {
+        "id": "glute-ham-bridge",
+        "name": "Bodyweight Hamstring Bridge",
+        "primary_muscle": "hamstrings",
+        "secondary_muscles": ["core"],
+        "equipment": "bodyweight",
+        "movement_pattern": "hinge",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Lie face up on mat with knees bent at roughly 90 degrees",
+            "Place heels firmly into floor and toes pointed slightly up",
+            "Arms flat at sides for stability"
+        ],
+        "form_cues": [
+            "Drive heels into floor and bridge hips up toward ceiling",
+            "Squeeze hamstrings and glutes hard at the apex",
+            "Lower hips down under control to light floor tap"
+        ],
+        "common_mistakes": [
+            "Over-arching lower back instead of hip extension",
+            "Placing feet too close to glutes shifting load to quads"
+        ],
+        "injury_prevention": [
+            "Brace core to ensure movement comes from hips, not lumbar spine"
+        ]
+    },
+    {
+        "id": "barbell-good-morning",
+        "name": "Barbell Good Morning",
+        "primary_muscle": "hamstrings",
+        "secondary_muscles": ["back", "core"],
+        "equipment": "barbell",
+        "movement_pattern": "hinge",
+        "is_compound": True,
+        "difficulty": "advanced",
+        "setup": [
+            "Rest barbell across upper back / rear delts like a back squat",
+            "Stand with feet shoulder-width apart, knees unlocked",
+            "Take tight grip and lock lats down"
+        ],
+        "form_cues": [
+            "Hinge hips backward maintaining flat back",
+            "Lower torso toward horizontal until hamstrings stretch",
+            "Push hips forward to return to standing position"
+        ],
+        "common_mistakes": [
+            "Rounding upper or lower spine under load",
+            "Bending knees excessively turning it into a squat"
+        ],
+        "injury_prevention": [
+            "Start with light loading; never allow back to round forward"
+        ]
+    },
+
+    # --- DELTS (8) ---
+    {
+        "id": "overhead-barbell-press",
+        "name": "Overhead Barbell Press",
+        "primary_muscle": "delts",
+        "secondary_muscles": ["arms", "core"],
+        "equipment": "barbell",
+        "movement_pattern": "vertical_push",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Grip bar just outside shoulder width with forearms vertical",
+            "Rest bar on front delts / clavicles",
+            "Stand with feet hip-width apart and squeeze glutes"
+        ],
+        "form_cues": [
+            "Press bar straight up moving head slightly back to clear chin",
+            "Push head forward through the window once bar clears forehead",
+            "Lock out bar directly over midfoot and crown of head"
+        ],
+        "common_mistakes": [
+            "Excessive backward arching of the lumbar spine",
+            "Flaring forearms outward under the bar"
+        ],
+        "injury_prevention": [
+            "Squeeze glutes and abs hard throughout to prevent lower back hyperextension"
+        ]
+    },
+    {
+        "id": "seated-dumbbell-shoulder-press",
+        "name": "Seated Dumbbell Shoulder Press",
+        "primary_muscle": "delts",
+        "secondary_muscles": ["arms"],
+        "equipment": "dumbbell",
+        "movement_pattern": "vertical_push",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Sit on upright bench with back firmly supported",
+            "Bring dumbbells to shoulder level with palms facing forward or slightly angled",
+            "Plant feet flat on the floor"
+        ],
+        "form_cues": [
+            "Press dumbbells overhead along natural arc until nearly touching",
+            "Lower dumbbells under control until elbows reach shoulder height",
+            "Keep shoulder blades depressed and stable"
+        ],
+        "common_mistakes": [
+            "Bouncing weights off shoulders",
+            "Arching lower back away from bench pad"
+        ],
+        "injury_prevention": [
+            "Keep wrists stacked directly over elbows throughout vertical travel"
+        ]
+    },
+    {
+        "id": "dumbbell-lateral-raise",
+        "name": "Dumbbell Lateral Raise",
+        "primary_muscle": "delts",
+        "secondary_muscles": [],
+        "equipment": "dumbbell",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Stand tall holding dumbbells at your sides",
+            "Maintain slight bend in elbows and lean forward 5 degrees",
+            "Feet hip-width apart with braced core"
+        ],
+        "form_cues": [
+            "Raise arms out to sides leading with elbows until parallel with floor",
+            "Pour pitcher slightly with pinkies slightly higher than thumbs",
+            "Lower slowly resisting gravity down to thighs"
+        ],
+        "common_mistakes": [
+            "Swinging body back and forth for momentum",
+            "Shrugging shoulders up using upper traps"
+        ],
+        "injury_prevention": [
+            "Do not lift above shoulder height in internal rotation to avoid impingement"
+        ]
+    },
+    {
+        "id": "cable-lateral-raise",
+        "name": "Cable Lateral Raise",
+        "primary_muscle": "delts",
+        "secondary_muscles": [],
+        "equipment": "cables",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Set pulley to lowest level",
+            "Stand side-on to pulley and grip handle with far hand behind or in front of body",
+            "Maintain slight elbow bend"
+        ],
+        "form_cues": [
+            "Pull cable diagonally up and out to side until arm is parallel to floor",
+            "Focus on medial delt contraction throughout constant tension",
+            "Control the descent back to starting point"
+        ],
+        "common_mistakes": [
+            "Using excessive weight and jerking torso",
+            "Bending elbow into a bicep curl"
+        ],
+        "injury_prevention": [
+            "Keep motion smooth and controlled under continuous cable resistance"
+        ]
+    },
+    {
+        "id": "cable-face-pull",
+        "name": "Cable Face Pull",
+        "primary_muscle": "delts",
+        "secondary_muscles": ["back"],
+        "equipment": "cables",
+        "movement_pattern": "horizontal_pull",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Attach rope to cable pulley set at eye level",
+            "Grip ends of rope with thumbs pointing backward",
+            "Step back into staggered stance for solid balance"
+        ],
+        "form_cues": [
+            "Pull center of rope toward bridge of nose / eyes",
+            "Separate rope ends driving thumbs backward into external rotation",
+            "Hold peak contraction for 1 second feeling rear delts and rotator cuff"
+        ],
+        "common_mistakes": [
+            "Pulling down to chest like a row",
+            "Leaning torso back and forth"
+        ],
+        "injury_prevention": [
+            "Emphasize external rotation to promote rotator cuff health and shoulder posture"
+        ]
+    },
+    {
+        "id": "pike-push-up",
+        "name": "Bodyweight Pike Push-Up",
+        "primary_muscle": "delts",
+        "secondary_muscles": ["arms", "core"],
+        "equipment": "bodyweight",
+        "movement_pattern": "vertical_push",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Start in push-up position and walk feet toward hands into inverted V",
+            "Hips elevated high toward ceiling with straight legs and arms",
+            "Gaze directed back toward feet"
+        ],
+        "form_cues": [
+            "Lower head forward forming a tripod with hands",
+            "Descend until forehead gently touches ground ahead of fingers",
+            "Push back and up along diagonal path to full lockout"
+        ],
+        "common_mistakes": [
+            "Elbows flaring straight sideways",
+            "Allowing hips to drop during descent"
+        ],
+        "injury_prevention": [
+            "Keep elbows angled at 45 degrees relative to shoulders"
+        ]
+    },
+    {
+        "id": "dumbbell-rear-delt-fly",
+        "name": "Bent-Over Dumbbell Rear Delt Fly",
+        "primary_muscle": "delts",
+        "secondary_muscles": ["back"],
+        "equipment": "dumbbell",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Hinge forward at hips until torso is nearly parallel to floor",
+            "Hold light dumbbells hanging below chest with soft elbows",
+            "Neutral spine and flat back"
+        ],
+        "form_cues": [
+            "Raise arms out to sides pulling with rear deltoids",
+            "Lead with elbows and avoid pinching shoulder blades too early",
+            "Lower weights smoothly under control"
+        ],
+        "common_mistakes": [
+            "Using too heavy weights and swinging back",
+            "Bending elbows into rows"
+        ],
+        "injury_prevention": [
+            "Keep lower back flat and supported; use light weights for target activation"
+        ]
+    },
+    {
+        "id": "barbell-upright-row",
+        "name": "Wide-Grip Barbell Upright Row",
+        "primary_muscle": "delts",
+        "secondary_muscles": ["arms"],
+        "equipment": "barbell",
+        "movement_pattern": "vertical_pull",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Stand tall holding barbell with wide overhand grip (1.5x shoulder width)",
+            "Arms fully extended in front of thighs",
+            "Feet shoulder-width apart"
+        ],
+        "form_cues": [
+            "Pull bar upward along torso leading with elbows",
+            "Stop when elbows reach shoulder height",
+            "Lower bar under strict control"
+        ],
+        "common_mistakes": [
+            "Narrow grip that strains wrists and rotator cuff",
+            "Pulling bar up to chin causing shoulder impingement"
+        ],
+        "injury_prevention": [
+            "Always use wide grip and stop at mid-chest height to protect subacromial space"
+        ]
+    },
+
+    # --- ARMS (8) ---
+    {
+        "id": "barbell-bicep-curl",
+        "name": "Standing Barbell Bicep Curl",
+        "primary_muscle": "arms",
+        "secondary_muscles": [],
+        "equipment": "barbell",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Stand upright holding barbell with underhand shoulder-width grip",
+            "Pin elbows against your ribcage",
+            "Feet hip-width apart with braced core"
+        ],
+        "form_cues": [
+            "Curl bar upward toward upper chest keeping upper arms stationary",
+            "Squeeze biceps firmly at top of rep",
+            "Lower bar slowly with 2-3 second eccentric return"
+        ],
+        "common_mistakes": [
+            "Swinging hips to generate momentum",
+            "Letting elbows drift far forward during curl"
+        ],
+        "injury_prevention": [
+            "Keep torso completely motionless to protect lumbar spine from shear"
+        ]
+    },
+    {
+        "id": "dumbbell-incline-curl",
+        "name": "Incline Dumbbell Curl",
+        "primary_muscle": "arms",
+        "secondary_muscles": [],
+        "equipment": "dumbbell",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "intermediate",
+        "setup": [
+            "Set incline bench to 45-60 degrees",
+            "Sit back with arms hanging straight down holding dumbbells",
+            "Keep shoulders pinned back to bench pad"
+        ],
+        "form_cues": [
+            "Curl dumbbells upward supinating wrists as you lift",
+            "Keep elbows pointing at floor to isolate long head stretch",
+            "Lower with complete stretch at the bottom"
+        ],
+        "common_mistakes": [
+            "Lifting shoulders off bench",
+            "Swinging elbows forward"
+        ],
+        "injury_prevention": [
+            "Do not hyperextend elbows under excessive weight at the bottom"
+        ]
+    },
+    {
+        "id": "dumbbell-hammer-curl",
+        "name": "Dumbbell Hammer Curl",
+        "primary_muscle": "arms",
+        "secondary_muscles": [],
+        "equipment": "dumbbell",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Stand tall with dumbbells hanging at sides with neutral grip",
+            "Keep elbows tucked into sides",
+            "Feet planted firmly hip-width apart"
+        ],
+        "form_cues": [
+            "Curl weights upward keeping palms facing each other",
+            "Squeeze brachialis and brachioradialis at top",
+            "Lower under strict control to full extension"
+        ],
+        "common_mistakes": [
+            "Swinging body back and forth",
+            "Flaring elbows outward"
+        ],
+        "injury_prevention": [
+            "Maintain neutral wrist position throughout movement"
+        ]
+    },
+    {
+        "id": "cable-tricep-pushdown",
+        "name": "Cable Rope Tricep Pushdown",
+        "primary_muscle": "arms",
+        "secondary_muscles": [],
+        "equipment": "cables",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Attach rope to high pulley",
+            "Grip rope with neutral grip and tuck elbows tight to ribs",
+            "Lean torso slightly forward 10 degrees"
+        ],
+        "form_cues": [
+            "Push rope downward extending elbows fully",
+            "Spread rope ends apart at bottom for peak triceps contraction",
+            "Control return allowing forearms to come back to 90 degrees"
+        ],
+        "common_mistakes": [
+            "Letting elbows move back and forth with every rep",
+            "Using shoulders to push the weight down"
+        ],
+        "injury_prevention": [
+            "Lock elbow pivot in place to prevent shoulder tendon overload"
+        ]
+    },
+    {
+        "id": "cable-overhead-tricep-extension",
+        "name": "Cable Overhead Tricep Extension",
+        "primary_muscle": "arms",
+        "secondary_muscles": [],
+        "equipment": "cables",
+        "movement_pattern": "isolation",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Set pulley at chest height with rope attachment",
+            "Turn away from machine, hold rope behind head, and step into staggered stance",
+            "Elevate elbows alongside ears"
+        ],
+        "form_cues": [
+            "Extend forearms forward and overhead until arms are straight",
+            "Keep upper arms fixed in place next to head",
+            "Allow deep stretch in triceps long head on eccentric return"
+        ],
+        "common_mistakes": [
+            "Flaring elbows widely out to the sides",
+            "Arching back excessively"
+        ],
+        "injury_prevention": [
+            "Keep core braced in staggered stance to stabilize lower back"
+        ]
+    },
+    {
+        "id": "barbell-close-grip-bench-press",
+        "name": "Close-Grip Barbell Bench Press",
+        "primary_muscle": "arms",
+        "secondary_muscles": ["chest", "delts"],
+        "equipment": "barbell",
+        "movement_pattern": "horizontal_push",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Lie on bench under barbell",
+            "Grip bar with shoulder-width grip (hands ~12-14 inches apart)",
+            "Set shoulder blades together into bench"
+        ],
+        "form_cues": [
+            "Lower bar toward lower sternum keeping elbows close to torso",
+            "Tuck elbows at 30-45 degrees",
+            "Press bar straight up emphasizing triceps lockout"
+        ],
+        "common_mistakes": [
+            "Grip placed too narrow causing intense wrist strain",
+            "Flaring elbows outward"
+        ],
+        "injury_prevention": [
+            "Keep grip shoulder-width; wrists must stay straight above elbows"
+        ]
+    },
+    {
+        "id": "tricep-bench-dips",
+        "name": "Bodyweight Bench Dips",
+        "primary_muscle": "arms",
+        "secondary_muscles": ["chest", "delts"],
+        "equipment": "bodyweight",
+        "movement_pattern": "vertical_push",
+        "is_compound": True,
+        "difficulty": "beginner",
+        "setup": [
+            "Place palms on edge of bench with fingers forward",
+            "Extend legs out in front with heels on floor",
+            "Keep hips close to the bench edge"
+        ],
+        "form_cues": [
+            "Lower body by bending elbows back until 90 degree bend",
+            "Keep back sliding closely alongside the bench",
+            "Press through palms to return to full arm lockout"
+        ],
+        "common_mistakes": [
+            "Letting hips drift far forward from bench straining anterior shoulders",
+            "Dropping below 90 degrees of elbow flexion"
+        ],
+        "injury_prevention": [
+            "Keep back close to bench to avoid extreme anterior shoulder shear"
+        ]
+    },
+    {
+        "id": "chin-up-bicep-focus",
+        "name": "Bodyweight Chin-Up (Underhand)",
+        "primary_muscle": "arms",
+        "secondary_muscles": ["back", "core"],
+        "equipment": "bodyweight",
+        "movement_pattern": "vertical_pull",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Grip pull-up bar with underhand (supinated) grip shoulder-width apart",
+            "Hang with straight arms and shoulders engaged",
+            "Cross ankles and squeeze abs"
+        ],
+        "form_cues": [
+            "Pull body up driving elbows down and back toward ribs",
+            "Bring chin over the bar squeezing biceps at top",
+            "Lower under strict control to full dead hang"
+        ],
+        "common_mistakes": [
+            "Swinging legs or kipping for upward drive",
+            "Dropping quickly from top without eccentric resistance"
+        ],
+        "injury_prevention": [
+            "Control the bottom position to protect the bicep tendon"
+        ]
+    },
+
+    # --- CORE (8) ---
+    {
+        "id": "plank",
+        "name": "Standard Forearm Plank",
+        "primary_muscle": "core",
+        "secondary_muscles": ["delts"],
+        "equipment": "bodyweight",
+        "movement_pattern": "core",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Place forearms on floor with elbows directly under shoulders",
+            "Extend legs straight back with toes on floor hip-width apart",
+            "Neutral head position looking at floor between hands"
+        ],
+        "form_cues": [
+            "Squeeze glutes, quads, and abdominal wall simultaneously",
+            "Maintain rigid straight line from heels to crown of head",
+            "Breathe steadily while maintaining intense isometric tension"
+        ],
+        "common_mistakes": [
+            "Allowing hips to sag toward the floor",
+            "Piking hips upward into inverted V"
+        ],
+        "injury_prevention": [
+            "Actively tuck pelvis (posterior pelvic tilt) to protect lower back"
+        ]
+    },
+    {
+        "id": "hanging-leg-raise",
+        "name": "Hanging Leg Raise",
+        "primary_muscle": "core",
+        "secondary_muscles": ["arms"],
+        "equipment": "bodyweight",
+        "movement_pattern": "core",
+        "is_compound": False,
+        "difficulty": "advanced",
+        "setup": [
+            "Hang from pull-up bar with overhand grip and engaged shoulders",
+            "Keep legs straight and toes pointed",
+            "Engage lats to stabilize body from swinging"
+        ],
+        "form_cues": [
+            "Roll pelvis up and raise legs toward horizontal or bar level",
+            "Focus on abdominal contraction rolling spine up",
+            "Lower legs slowly without using swinging momentum"
+        ],
+        "common_mistakes": [
+            "Using hip flexors only without posterior pelvic tilt",
+            "Swinging legs forward and backward for momentum"
+        ],
+        "injury_prevention": [
+            "Curl pelvis upward to engage rectus abdominis and prevent psoas hyperextension"
+        ]
+    },
+    {
+        "id": "cable-woodchopper",
+        "name": "Cable Rotational Woodchopper",
+        "primary_muscle": "core",
+        "secondary_muscles": ["delts"],
+        "equipment": "cables",
+        "movement_pattern": "core",
+        "is_compound": True,
+        "difficulty": "intermediate",
+        "setup": [
+            "Set pulley at shoulder height with single handle",
+            "Stand sideways to cable with wide athletic stance holding handle with both hands",
+            "Arms extended in front of chest"
+        ],
+        "form_cues": [
+            "Rotate torso across body driving with hips and core",
+            "Pivot on back foot as you rotate through",
+            "Return under control resisting the cable stack"
+        ],
+        "common_mistakes": [
+            "Rotating purely with shoulders and arms instead of torso",
+            "Keeping back foot glued flat stressing knee"
+        ],
+        "injury_prevention": [
+            "Pivot back foot to allow hip rotation and protect knee and lumbar spine"
+        ]
+    },
+    {
+        "id": "cable-kneeling-crunch",
+        "name": "Kneeling Cable Crunch",
+        "primary_muscle": "core",
+        "secondary_muscles": [],
+        "equipment": "cables",
+        "movement_pattern": "core",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Attach rope to high pulley",
+            "Kneel 2 feet in front of stack holding rope ends beside ears",
+            "Hips back above heels"
+        ],
+        "form_cues": [
+            "Crunch downward curling spine bringing elbows toward knees",
+            "Keep hips stationary and contract abs hard at bottom",
+            "Return slowly allowing abs to stretch under resistance"
+        ],
+        "common_mistakes": [
+            "Sitting down onto heels turning it into a hip hinge",
+            "Pulling with arms instead of flexing spine with abs"
+        ],
+        "injury_prevention": [
+            "Keep hips locked in space so the movement is pure spinal flexion"
+        ]
+    },
+    {
+        "id": "barbell-rollout",
+        "name": "Barbell Ab Rollout",
+        "primary_muscle": "core",
+        "secondary_muscles": ["delts", "back"],
+        "equipment": "barbell",
+        "movement_pattern": "core",
+        "is_compound": True,
+        "difficulty": "advanced",
+        "setup": [
+            "Kneel on pad with round plates loaded on barbell in front of you",
+            "Grip bar with shoulder-width overhand grip",
+            "Brace core with slight hollow body posture"
+        ],
+        "form_cues": [
+            "Roll barbell forward slowly extending hips and arms",
+            "Extend out as far as can be controlled without sagging",
+            "Pull bar back toward knees using abdominal tension and lats"
+        ],
+        "common_mistakes": [
+            "Letting lumbar spine sag or hyperextend at the bottom",
+            "Leading back with hips first instead of pulling with core"
+        ],
+        "injury_prevention": [
+            "Stop before lumbar spine extends; maintain posterior pelvic tilt"
+        ]
+    },
+    {
+        "id": "dumbbell-side-bend",
+        "name": "Dumbbell Side Bend",
+        "primary_muscle": "core",
+        "secondary_muscles": [],
+        "equipment": "dumbbell",
+        "movement_pattern": "core",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Stand tall holding one dumbbell at side, opposite hand behind ear",
+            "Feet hip-width apart and chest tall",
+            "Hips squared and stationary"
+        ],
+        "form_cues": [
+            "Bend torso sideways toward dumbbell side lowering weight to knee level",
+            "Engage opposite oblique to pull torso back to upright",
+            "Stop when straight; do not over-bend to other side"
+        ],
+        "common_mistakes": [
+            "Holding dumbbells in both hands creating counterweight",
+            "Twisting torso forward or backward during lateral bend"
+        ],
+        "injury_prevention": [
+            "Only hold a dumbbell in ONE hand to allow true unilateral contraction"
+        ]
+    },
+    {
+        "id": "dumbbell-russian-twist",
+        "name": "Dumbbell Russian Twist",
+        "primary_muscle": "core",
+        "secondary_muscles": [],
+        "equipment": "dumbbell",
+        "movement_pattern": "core",
+        "is_compound": False,
+        "difficulty": "intermediate",
+        "setup": [
+            "Sit on floor with knees bent and feet elevated slightly",
+            "Lean torso back 45 degrees holding one dumbbell with both hands",
+            "Engage abs to hold V-sit balance"
+        ],
+        "form_cues": [
+            "Rotate torso smoothly moving dumbbell from hip to hip",
+            "Follow dumbbell with eyes and shoulders",
+            "Maintain rigid core bracing throughout"
+        ],
+        "common_mistakes": [
+            "Moving only arms without torso rotation",
+            "Slouching lumbar spine into floor"
+        ],
+        "injury_prevention": [
+            "Keep chest proud and spine neutral to avoid loaded flexion-torsion"
+        ]
+    },
+    {
+        "id": "dead-bug",
+        "name": "Bodyweight Dead Bug",
+        "primary_muscle": "core",
+        "secondary_muscles": [],
+        "equipment": "bodyweight",
+        "movement_pattern": "core",
+        "is_compound": False,
+        "difficulty": "beginner",
+        "setup": [
+            "Lie on back with arms extended toward ceiling",
+            "Raise knees to 90 degrees with shins parallel to floor",
+            "Press lower back flat into the ground without gaps"
+        ],
+        "form_cues": [
+            "Lower opposite arm and opposite leg slowly toward floor",
+            "Hover limbs 1 inch off ground while keeping lower back glued to floor",
+            "Return to center and switch to other side"
+        ],
+        "common_mistakes": [
+            "Lower back arching off floor during limb extension",
+            "Holding breath during repetition"
+        ],
+        "injury_prevention": [
+            "If lower back begins to arch, shorten the range of leg extension"
+        ]
+    }
+]
+
+def main():
+    target_path = Path(__file__).resolve().parent.parent / "app" / "modules" / "exercises" / "data" / "exercises.json"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(target_path, "w", encoding="utf-8") as f:
+        json.dump(exercises, f, indent=2)
+    print(f"Generated {len(exercises)} exercises into {target_path}")
+
+if __name__ == "__main__":
+    main()

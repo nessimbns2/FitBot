@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: fitbot-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: fitbot
+      POSTGRES_PASSWORD: fitbot_password
+      POSTGRES_DB: fitbot_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitbot -d fitbot_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fitbot-backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://fitbot:fitbot_password@db:5432/fitbot_db
+      DOCS_DIR: /app/docs
+      VECTORSTORE_DIR: /app/vectorstore
+      LLM_PROVIDER: gemini
+      LLM_MODEL: gemini-2.0-flash
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+      CORS_ORIGINS: http://localhost,http://localhost:5173,http://localhost:80
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/docs:/app/docs:ro
+      - ./backend/vectorstore:/app/vectorstore
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fitbot-frontend
+    restart: always
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

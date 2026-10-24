@@ -1,0 +1,52 @@
+[
+  {
+    "question": "What are the recommended macronutrient ratios for fat loss and muscle retention?",
+    "category": "nutrition",
+    "expected_source": "360Nutritionprogram1.pdf"
+  },
+  {
+    "question": "How does meal timing impact carbohydrate utilization around training?",
+    "category": "nutrition",
+    "expected_source": "360Nutritionprogram1.pdf"
+  },
+  {
+    "question": "What is the recommended daily hydration intake in milliliters per kilogram?",
+    "category": "nutrition",
+    "expected_source": "360Nutritionprogram1.pdf"
+  },
+  {
+    "question": "What nutritional strategies are highlighted in the sports newsletter for recovery?",
+    "category": "nutrition",
+    "expected_source": "NNC_2016_Newsletter_1.pdf"
+  },
+  {
+    "question": "What are key whole food choices for pre-workout and post-workout meals?",
+    "category": "nutrition",
+    "expected_source": "Printable-Workout-Nutrition-Infographic.pdf"
+  },
+  {
+    "question": "How should an ectomorph structure their training volume and rest intervals?",
+    "category": "exercise",
+    "expected_source": "BodyType+Training+and+Nutrition.pdf"
+  },
+  {
+    "question": "What workout split is most effective for a mesomorph seeking hypertrophy?",
+    "category": "exercise",
+    "expected_source": "BodyType+Training+and+Nutrition.pdf"
+  },
+  {
+    "question": "What training protocols and metabolic conditioning work best for an endomorph?",
+    "category": "exercise",
+    "expected_source": "EndomorphEvolution.pdf"
+  },
+  {
+    "question": "What are the core movement patterns in functional athletic training?",
+    "category": "exercise",
+    "expected_source": "Functional-Training-Guide-IAFS.pdf"
+  },
+  {
+    "question": "How does joint mobility and core stabilization prevent athletic injury?",
+    "category": "exercise",
+    "expected_source": "Functional-Training-Guide-IAFS.pdf"
+  }
+]

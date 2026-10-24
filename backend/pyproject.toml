@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]          # makes `from app.core.config import settings` work
+addopts = "-v --tb=short"

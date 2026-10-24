@@ -1,0 +1,422 @@
+<USER_REQUEST>
+Fitness Coach App: Implementation Prompt Plan
+Oct 24, 2026 · @nessim
+How to use this plan
+Build the app in ten phases, one prompt at a time, and commit each phase before starting the next.
+I made five assumptions where your module breakdown is silent. Change any of them before Phase 0.
+• Backend: Python 3.11+, FastAPI, SQLModel on SQLite, switchable to PostgreSQL through DATABASE_URL.
+• Retrieval: pypdf for text, local sentence-transformers embeddings, one FAISS index per category.
+• LLM: one provider-neutral client in rag_core/engine.py; you pick the provider and set its key in .env.
+• Frontend: React, Vite and TypeScript, with your four views plus a profile page.
+• Users: a single local user, no login in version 1.
+Run this loop for every phase:
+1. Open a fresh agent session and paste the master context prompt (next section).
+2. Paste the phase prompt exactly as written.
+3. Run the Verify commands under it.
+4. Commit, then move on.
+The build order follows what each module needs. The math modules (nutrition, exercises, overload) need only the profile and the database, so they come before any AI. The orchestrator comes last because it pulls from the profile, the overload history and the vector store at once.
+Phase 4 needs the exercise catalog from Phase 3, and Phase 5 needs only the Phase 0 settings, so it can start any time after the scaffold.
+Master context prompt
+Paste this at the start of every agent session so each phase follows the same architecture and rules.
+You are a senior Python and React engineer helping me build "Fitness Coach", a coaching app that combines exact math with retrieval-augmented answers from my library of PDF guides.
+
+ARCHITECTURE
+- Backend: FastAPI + SQLModel (SQLite now, PostgreSQL later) + FAISS. Frontend: React + Vite + TypeScript.
+- Five backend modules under backend/app/modules/: user, nutrition, exercises, progressive_overload, rag_core. Shared config and database code live in backend/app/core/.
+- backend/main.py mounts one APIRouter per module. Each module has router.py (thin HTTP layer), service.py (logic) and models.py or schemas (SQLModel and Pydantic types). Extra files: nutrition/calculator.py, exercises/catalog.py and generator.py, progressive_overload/algorithms.py, rag_core/engine.py and router_agent.py.
+- Endpoints: /api/user/*, /api/nutrition/*, /api/exercises/*, /api/overload/*, /api/chat and /api/chat/stream.
+
+NON-NEGOTIABLE RULES
+1. Numbers come from Python, never from the LLM. TDEE, macros, volume and progression targets are pure functions with unit tests. The LLM only explains them.
+2. RAG chunks carry metadata: category ('nutrition' or 'exercise'), source file, page. Nutrition code retrieves only category 'nutrition'; exercise code retrieves only category 'exercise'.
+3. No business logic in routers. Modules talk to each other only through service.py functions.
+4. Type hints everywhere, Pydantic validation on every request, clear HTTP errors (422 bad input, 404 missing record).
+5. Store weights in kg internally; convert pounds on input and output.
+6. Any health-related answer includes a short note that it is general information, not medical advice.
+
+HOW TO WORK
+- Before coding, list the files you will create or change. Then implement only what the current prompt asks.
+- Write pytest tests for every function you add. Run the full test suite and show me the result before you say you are done.
+- Do not add dependencies the prompt does not mention without asking me first.
+- If something is ambiguous, ask me one concise question instead of guessing.
+- Finish with: files changed, tests run, anything left undone.
+Phase 0: Project scaffold
+Phase 0 gives you a running FastAPI app with the full folder layout, settings and a health check, and no module logic.
+Prompt 0.1: Scaffold the backend
+Create the backend scaffold for Fitness Coach.
+
+1. Create every folder and file in the directory layout from the context, with __init__.py files where needed. Each module's router.py exposes an APIRouter with its prefix and tag (/api/user, /api/nutrition, /api/exercises, /api/overload, /api/chat) and no endpoints yet.
+2. backend/main.py: create the FastAPI app, enable CORS for the origins in settings, mount all five routers, and add GET /api/health returning {"status": "ok"}.
+3. app/core/config.py: a pydantic-settings Settings class that reads .env with DATABASE_URL (default sqlite:///./fitness.db), DOCS_DIR, VECTORSTORE_DIR, LLM_PROVIDER, LLM_MODEL, LLM_API_KEY, EMBEDDING_MODEL (default sentence-transformers/all-MiniLM-L6-v2) and CORS_ORIGINS (default http://localhost:5173).
+4. requirements.txt with pinned versions: fastapi, uvicorn[standard], sqlmodel, pydantic-settings, faiss-cpu, sentence-transformers, pypdf, sse-starlette, pytest, httpx.
+5. .env.example, .gitignore (venv, .env, *.db, vectorstore index files) and a README with run instructions.
+6. tests/test_health.py using FastAPI's TestClient.
+
+Do not implement any module logic yet.
+Verify:
+• pip install -r requirements.txt succeeds.
+• pytest passes.
+• uvicorn main:app --reload serves GET /api/health, and /docs shows no module endpoints yet.
+Commit: chore: backend scaffold
+Phase 1: Database and User module
+Phase 1 replaces the volatile in-memory dict with a real database and delivers Module 1, which every later module reads from.
+Prompt 1.1: Database layer
+Add the database layer.
+
+1. app/core/database.py: create the SQLModel engine from settings.DATABASE_URL (with check_same_thread=False for SQLite), a get_session FastAPI dependency, and init_db() that calls SQLModel.metadata.create_all.
+2. Call init_db() from a lifespan handler in main.py.
+3. tests/conftest.py: a fixture that builds an in-memory SQLite engine, overrides get_session, and yields a TestClient, so every later test is isolated.
+4. Write one test that proves the override works.
+Commit: feat(core): database layer and test fixtures
+Prompt 1.2: User and Profile module
+Build Module 1 (User & Profile) in app/modules/user/.
+
+models.py (SQLModel tables and enums):
+- Enums: Sex (male, female); ExperienceLevel (beginner, intermediate, advanced); Somatotype (ectomorph, mesomorph, endomorph, unknown); Goal (hypertrophy, fat_loss, strength, athletic_performance); ActivityLevel (sedentary, light, moderate, very_active, extreme); UnitSystem (metric, imperial).
+- UserProfile: id, age, sex, height_cm, weight_kg, body_fat_pct (nullable), experience_level, somatotype, goal, activity_level, unit_system, updated_at.
+- ChatSession: id (uuid), user_id, title, created_at, updated_at.
+- ChatMessage: id, session_id, role (user or assistant), content, sources (JSON, nullable), created_at.
+- Validation: age 14-100, height 120-230 cm, weight 30-300 kg, body fat 3-60 percent.
+
+service.py: get_or_create_default_profile() (one local user with id 1, created on first read), update_profile(), list_sessions(), get_session_messages(), create_session(), append_message(), delete_session() (also deletes that session's messages).
+
+router.py:
+- GET /api/user/profile
+- PUT /api/user/profile (partial updates allowed)
+- GET /api/user/sessions (newest first, with title and last-message time)
+- GET /api/user/sessions/{id}/messages
+- DELETE /api/user/sessions/{id}
+
+Tests: profile defaults, validation errors, partial update, session create, list and delete cascade.
+Verify:
+• pytest passes.
+• Update the profile with curl -X PUT, restart the server, and confirm the profile is still there.
+Commit: feat(user): profile and chat session persistence
+The GET /api/user/sessions/{id}/messages endpoint is an addition to your list. The chat view needs it to reopen an earlier conversation.sez
+Phase 2: Nutrition math
+Phase 2 builds the deterministic half of Module 2: BMR, TDEE, calorie targets, macros and meal slots, all tested without any LLM involved.
+Prompt 2.1: Calculator
+Build the deterministic core of Module 2 (Nutrition) in app/modules/nutrition/calculator.py. Pure functions only: no database, no FastAPI, no LLM.
+
+1. bmr_mifflin_st_jeor(sex, weight_kg, height_cm, age): 10*weight_kg + 6.25*height_cm - 5*age, then +5 for male or -161 for female.
+2. bmr_katch_mcardle(weight_kg, body_fat_pct): 370 + 21.6 * lean_mass_kg, where lean_mass_kg = weight_kg * (1 - body_fat_pct/100).
+3. choose_bmr(...): use Katch-McArdle when body_fat_pct is given, otherwise Mifflin-St Jeor. Return the value and the name of the formula used.
+4. tdee(bmr, activity_level): multipliers sedentary 1.2, light 1.375, moderate 1.55, very_active 1.725, extreme 1.9.
+5. target_calories(tdee, goal, sex): adjustments as named constants at the top of the file: fat_loss -20 percent, hypertrophy +10 percent, strength +5 percent, athletic_performance 0 percent. Enforce a floor of 1500 kcal for male and 1200 kcal for female, and report when the floor was applied.
+6. macro_targets(target_kcal, weight_kg, goal, somatotype): protein 2.0 g/kg (2.2 for fat_loss); fat at least 0.8 g/kg and at least 20 percent of calories; carbs fill the remaining calories (protein 4, carbs 4, fat 9 kcal per gram). Somatotype tweak as editable constants: endomorph moves 5 percent of target calories from carbs to fat; ectomorph moves 5 percent from fat to carbs but never below the fat floor; mesomorph no change.
+7. A frozen dataclass MacroResult with bmr, bmr_formula, tdee, target_kcal, protein_g, carbs_g, fat_g, floor_applied and a warnings list.
+
+Tests: hand-computed cases for both formulas, every activity level, the calorie floor, macros summing to within 2 kcal of the target, and rejection of nonsense input (negative weight, body fat above 60).
+Commit: feat(nutrition): TDEE and macro calculator
+Prompt 2.2: Service and endpoints
+Wire Module 2 to HTTP in app/modules/nutrition/.
+
+service.py:
+- calculate_macros(request, profile): any field missing from the request falls back to the stored user profile, read through user.service.get_or_create_default_profile(). Convert pounds to kg when unit_system is imperial.
+- build_meal_plan(macros, meals_per_day, training_time, goal): split the daily macros across 3 to 6 meals. Give the largest carbohydrate share to the meals before and after training. Return meal slots, each with a label (for example 'Pre-workout'), a time hint relative to training, and protein, carbs, fat and kcal. Add a hydration target of 35 ml per kg of body weight as an editable constant. Slot totals must equal the daily totals within rounding.
+
+router.py:
+- POST /api/nutrition/calculate-macros returns the MacroResult plus the inputs that were used.
+- POST /api/nutrition/plan returns the macros and the meal slots.
+- Leave POST /api/nutrition/ask unimplemented; it arrives in Phase 7.
+
+Tests: request values override the profile, imperial conversion, meal slot totals equal daily totals, and 422 on an invalid meals_per_day.
+Verify:
+• pytest passes.
+• Call POST /api/nutrition/calculate-macros for a real person and check the result against an independent TDEE calculator.
+Commit: feat(nutrition): macro and meal plan endpoints
+The calorie adjustments, protein per kilogram and somatotype shifts are my defaults, not figures from your PDFs. Compare them with 360Nutritionprogram1.pdf and EndomorphEvolution.pdf, then edit the constants at the top of calculator.py.
+Phase 3: Exercises and workouts
+Phase 3 delivers Module 3 as a typed exercise library plus a deterministic routine generator, with no retrieval yet.
+Prompt 3.1: Exercise catalog
+Build the exercise library for Module 3 in app/modules/exercises/.
+
+1. catalog.py: Pydantic models and enums. MuscleGroup (chest, back, quads, hamstrings, delts, arms, core); Equipment (barbell, dumbbell, cables, bodyweight); MovementPattern (horizontal_push, vertical_push, horizontal_pull, vertical_pull, squat, hinge, lunge, isolation, core). Exercise fields: id (slug such as 'barbell-bench-press'), name, primary_muscle, secondary_muscles, equipment, movement_pattern, is_compound, difficulty (beginner, intermediate, advanced), setup (list of steps), form_cues (list), common_mistakes (list), injury_prevention (list).
+2. data/exercises.json: seed at least 8 exercises per muscle group, covering all four equipment types, each with setup steps, 3 or more form cues, 2 or more common mistakes and 1 or more injury-prevention cues. Write conservatively: only include advice that is standard coaching practice.
+3. Load and validate the JSON once at startup; fail loudly on a duplicate id or a missing field.
+4. service.py: list_exercises(muscle, equipment, pattern, q) and get_exercise(id).
+5. router.py: GET /api/exercises/catalog with optional query parameters muscle, equipment, pattern and q (name search); GET /api/exercises/catalog/{id}.
+
+Tests: filters combine correctly, an unknown id returns 404, the seed file validates, and every muscle group has at least 8 entries.
+Commit: feat(exercises): exercise catalog
+Prompt 3.2: Routine generator
+Build the routine generator in app/modules/exercises/generator.py as pure, deterministic logic.
+
+Input: split ('push_pull_legs', 'upper_lower' or 'full_body'), days_per_week (2 to 6), experience_level, goal, available_equipment (list).
+Output: a list of training days. Each day has a name and exercises with sets, a rep range, rest seconds and a movement pattern. Also a weekly_sets_per_muscle summary.
+
+Rules, kept as editable constants:
+- Each day starts with one or two compound lifts, then isolation work.
+- Rep ranges by goal: strength 3-6; hypertrophy 6-12 for compounds and 10-15 for isolation; fat_loss 8-12; athletic_performance 4-8. Rest: 150-240 s for strength compounds, 60-120 s otherwise.
+- Weekly sets per muscle group: 10-20 for hypertrophy, 6-12 for beginners, lower for other goals. Report any muscle that ends up outside its range.
+- Hit each muscle at least twice per week whenever days_per_week allows it.
+- Use only exercises whose equipment is available. The same inputs must always give the same routine (no randomness).
+- If the inputs cannot meet the volume target, return the best routine plus a warnings list.
+
+Endpoint: POST /api/exercises/generate-routine. Missing fields fall back to the stored user profile.
+
+Tests: each split produces the right day structure, equipment filtering works, weekly sets stay inside the target ranges for standard inputs, and identical inputs give identical output.
+Verify:
+• pytest passes.
+• Generate a routine for each split and read it the way a coach would.
+Commit: feat(exercises): routine generator
+Review data/exercises.json yourself before relying on it, because the agent writes it from general knowledge. Phase 7 later adds retrieval from your exercise PDFs for richer cues.
+Phase 4: Progressive overload
+Phase 4 builds the engine that logs every set and turns the history into a next-session target, using fixed formulas rather than the LLM.
+Prompt 4.1: Workout logging
+Build the logging half of Module 4 (Progressive Overload) in app/modules/progressive_overload/.
+
+models.py: WorkoutSet table with id, user_id, exercise_id (a slug from the exercise catalog), performed_at (datetime, default now), session_label (optional, for example 'Push A'), set_number, reps, weight_kg, rpe (nullable, 1-10 in half steps), rir (nullable, 0-5), notes.
+Validation: reps 1-100, weight_kg 0-500. If only rir is sent, store rpe as 10 - rir; if only rpe is sent, store rir as 10 - rpe, rounded. If both are sent and disagree by more than 1, return 422.
+
+service.py:
+- log_set(...): validate exercise_id with exercises.service.get_exercise; accept a unit field ('kg' or 'lb') and convert to kg.
+- log_sets_bulk(...): a list of sets for one session.
+- get_history(exercise_id, limit, since): sets grouped by session date, newest first.
+
+router.py:
+- POST /api/overload/log-set (one set or a list of sets)
+- GET /api/overload/history/{exercise_id}
+
+Tests: unit conversion, RPE and RIR derivation and conflict, unknown exercise returns 404, history grouping and ordering.
+Commit: feat(overload): workout set logging
+Prompt 4.2: Progression algorithms
+Build the progression engine in app/modules/progressive_overload/algorithms.py as pure functions that take plain data and return plain data.
+
+1. double_progression(last_session_sets, rep_range, increment_kg, rpe_ceiling):
+   - If every working set reached the top of rep_range at RPE at or below rpe_ceiling (default 8.5): recommend weight + increment_kg at the bottom of the rep range.
+   - Otherwise: recommend the same weight with one more rep on the weakest set, and give an alternative of weight + increment_kg at the bottom of the rep range.
+   - Worked example with rep_range 6-12 and increment 2.5: 'Last session: 80 kg for 3x8 at RPE 8. Target: 80 kg for 3x9, or 82.5 kg for 3x6.'
+2. linear_progression(last_session_sets, weekly_increment_kg): add a fixed increment each week while all prescribed reps were completed; hold the weight after a failed session.
+3. Default increments as editable constants: 2.5 kg upper-body compounds, 5 kg lower-body compounds, 1.25 kg isolation work.
+4. detect_plateau(history, sessions=3): true when estimated 1RM (Epley: weight * (1 + reps/30)) has not improved across the last N sessions. Add deload_suggested when RPE is also trending up.
+5. weekly_volume(sets, catalog, week_start): effective sets per muscle group for one week. An effective set is a working set at RPE 6 or higher (editable constant). Return each muscle with its set count and a status of 'below', 'in_range' or 'above' against a range of 10-20 sets per week.
+6. A Recommendation dataclass: weight_kg, rep_target, alternative, reason (plain-language string), plateau_flag, deload_suggested.
+
+Tests: the exact 80 kg example above, an increase after hitting the top of the range, a hold after missed reps, plateau detection on a flat series and on a rising series, the Epley formula, and weekly volume bucketing across week boundaries.
+Commit: feat(overload): progression and volume algorithms
+Prompt 4.3: Recommendation and volume endpoints
+Connect the algorithms to HTTP in progressive_overload/service.py and router.py.
+
+- service.get_recommendation(exercise_id, algorithm): default to double progression; use the exercise's is_compound flag and movement pattern to pick the increment; when nothing is logged, return a clear 'no history yet' response with a sensible starting suggestion.
+- service.get_weekly_volume(week_start): read logged sets and call weekly_volume() with the exercise catalog.
+- GET /api/overload/recommendation/{exercise_id}?algorithm=double|linear
+- GET /api/overload/volume?week_start=YYYY-MM-DD (default: the current week, Monday start)
+
+Tests: end-to-end through the API with logged sets, the no-history case, and a volume call that spans two muscle groups.
+Verify:
+• pytest passes.
+• Log three sessions with curl and confirm the recommendation matches a hand calculation.
+Commit: feat(overload): recommendation and volume endpoints
+GET /api/overload/volume is an addition to your endpoint list, because volume tracking needs a way to read the result. The RPE ceiling of 8.5 and the effective-set threshold of RPE 6 are my defaults; adjust them to your own coaching rules.
+Phase 5: PDF ingestion and vector store
+Phase 5 turns your PDFs into category-tagged FAISS indexes and proves retrieval works before any LLM is attached.
+Prompt 5.1: Ingestion pipeline
+Build the ingestion half of the RAG pipeline in app/modules/rag_core/ (an ingest.py module imported by engine.py).
+
+1. PDFs live in backend/docs/. Create backend/docs/manifest.json mapping each file name to a category: 360Nutritionprogram1.pdf and NNC_2016_Newsletter_1.pdf -> 'nutrition'; BodyType+Training+and+Nutrition.pdf, Functional-Training-Guide-IAFS.pdf and EndomorphEvolution.pdf -> 'exercise'. If a PDF is in the folder but missing from the manifest, stop with a clear error instead of guessing.
+2. Extract text page by page with pypdf. If a page has fewer than 50 characters, log a warning that it may be scanned, and count such pages per file.
+3. Chunk each page into about 900 characters with 150 characters of overlap, splitting on paragraph boundaries first, then sentences. Each chunk stores chunk_id, text, source (file name), page and category.
+4. Embed chunks in batches with the sentence-transformers model from settings.EMBEDDING_MODEL, using normalised vectors.
+5. Build one FAISS IndexFlatIP per category and save it as vectorstore/{category}.faiss, with a sidecar vectorstore/{category}_chunks.json holding the chunk metadata in the same order.
+6. Make ingestion idempotent: store a SHA-256 hash of each PDF in vectorstore/state.json and re-embed only changed files, rebuilding the affected category index.
+7. CLI: python -m app.modules.rag_core.ingest [--rebuild]. Print files processed, pages, chunks per category and warnings.
+
+Tests use two tiny generated PDFs and a fake hash-based embedder, so they need no model download. Cover manifest errors, chunk size and overlap, the hash skip on a second run, and the rebuild flag.
+Commit: feat(rag): PDF ingestion pipeline
+Prompt 5.2: Retrieval and smoke evaluation
+Add retrieval to rag_core/engine.py.
+
+1. class VectorStore: loads the category indexes lazily and keeps them in memory.
+2. search(query, category, k=5, min_score=0.25): embed the query, search only that category's index, and return results with text, source, page, category and score. Drop results below min_score. Raise a clear error if the category index does not exist yet.
+3. search_all(query, k): search both categories, merge by score, and tag each result with its category. This is for the general-chat intent.
+4. GET /api/chat/debug/search?q=...&category=... , enabled only when DEBUG=true in settings, so I can inspect retrieval without an LLM.
+5. scripts/rag_smoke.py: read tests/rag_questions.json (10 questions I will supply, each with a category and the expected source file) and print the hit rate at k=5 plus every miss.
+
+Tests: a query returns results only from the requested category, min_score filtering, the missing-index error, and search_all merge ordering.
+Verify:
+• Run python -m app.modules.rag_core.ingest on your real PDFs and read the warnings.
+• Write 10 questions whose answers you know are in the PDFs, save them as tests/rag_questions.json, and run python scripts/rag_smoke.py.
+• Do not continue until most questions find the right source in the top 5.
+Commit: feat(rag): category-filtered FAISS search
+I used one index per category rather than one shared index with a filter, because a flat FAISS index cannot filter by metadata, and separate indexes guarantee a nutrition query never sees exercise text. The metadata tags still travel with every chunk. Your document does not say which category EndomorphEvolution.pdf belongs to; I tagged it exercise, so change the manifest if it should be nutrition. If the warnings show scanned pages, run OCR on those PDFs before ingesting.
+Phase 6: Orchestrator and streaming chat
+Phase 6 is Module 5: it routes each message to the right module, injects profile and overload data, retrieves from the right category, and streams the answer.
+Prompt 6.1: LLM client and prompt templates
+Build the LLM layer in rag_core/engine.py.
+
+1. An abstract LLMClient with complete(messages, system) -> str and stream(messages, system) -> async iterator of text tokens. Implement one concrete client for the provider named in settings.LLM_PROVIDER, using settings.LLM_MODEL and settings.LLM_API_KEY, and a FakeLLMClient for tests that returns scripted tokens.
+2. Prompt templates as plain constants, one per intent: nutrition, exercise_technique, overload_advice, workout_logging, general. Every template has: the coach persona; a USER FACTS block; a CALCULATED NUMBERS block that the model must quote and never recompute; a CONTEXT block of retrieved passages labelled [1], [2] and so on; and rules. The rules: use the CONTEXT for factual claims, cite passages as [n], say 'I could not find this in the guides' when the context does not cover the question, add the not-medical-advice note on health topics, and decline extreme diets or training that risks injury.
+3. build_prompt(intent, facts, numbers, passages, history) -> (system, messages), keeping only the last 10 messages of history.
+
+Tests: every template contains the required blocks, history is truncated, passages are numbered, and FakeLLMClient streams in order.
+Commit: feat(rag_core): LLM client and prompt templates
+Prompt 6.2: Intent router and context enricher
+Build rag_core/router_agent.py.
+
+1. classify_intent(message, recent_messages) -> Intent with name and confidence. Intents: nutrition, exercise_technique, workout_logging, overload_advice, general. Use a rule-based classifier first (keyword and pattern lists kept as constants; for example a weight with kg or lb plus a sets-by-reps pattern signals workout_logging). When confidence is below 0.6, make one short LLM call that must return a single intent name; validate it and default to general.
+2. extract_exercises(message) -> exercise_ids, by matching names and common aliases against the exercise catalog (for example 'bench' -> barbell-bench-press).
+3. enrich(intent, message, session) -> EnrichedContext containing: user_facts (age, sex, weight, goal, experience, somatotype from the profile); numbers (for nutrition, the MacroResult from nutrition.service; for overload_advice, the recommendation and the last 3 sessions for each mentioned exercise); and the retrieval category (nutrition for nutrition; exercise for exercise_technique and overload_advice; both for general).
+4. parse_logged_sets(message) -> structured sets for workout_logging (exercise, weight, unit, sets, reps, RPE or RIR). Use one LLM call that returns JSON validated by Pydantic. Never write to the database here; return the proposed sets as a pending_action for the user to confirm.
+
+Tests with FakeLLMClient: intent classification on 20 example messages, alias extraction, enrichment includes numbers from the services, and parse_logged_sets returns a pending action with no database write.
+Commit: feat(rag_core): intent router and context enricher
+Prompt 6.3: Chat endpoints with streaming
+Implement the chat endpoints in rag_core/router.py and a pipeline function in rag_core/engine.py.
+
+Pipeline per message: classify intent -> enrich -> retrieve with the right category -> build prompt -> call the LLM.
+
+- POST /api/chat: body {message, session_id?}; returns {session_id, intent, answer, sources, pending_action?}.
+- POST /api/chat/stream: same body; responds with Server-Sent Events via sse-starlette. Event types in order: 'meta' (session_id, intent), 'sources' (retrieved passages with source, page, score), 'token' (one per text chunk), 'pending_action' (only for workout_logging), 'done', and 'error' with a safe message if anything fails. Stop cleanly when the client disconnects.
+- Create a chat session when session_id is missing, set its title from the first 6 words of the first message, and persist the user message and the final assistant message (with sources) through the user module's service.
+- If retrieval returns nothing above the score threshold, still answer, but tell the model there is no context so it follows the 'could not find this in the guides' rule.
+- Reject messages longer than 2000 characters with 422.
+
+Tests with FakeLLMClient and a fake vector store: the full pipeline for each intent, event order in the stream, persistence of both messages, the no-context path, and the error event.
+Verify:
+• pytest passes.
+• Run curl -N -X POST against /api/chat/stream with five real questions, one per intent.
+• Check that every number in a nutrition answer matches POST /api/nutrition/calculate-macros, and that sources are cited.
+Commit: feat(rag_core): streaming coach chat
+Workout logging never writes silently. The chat returns a pending_action, and the frontend confirms it through POST /api/overload/log-set.
+Phase 7: Retrieval-backed module endpoints
+Phase 7 adds the endpoints that combine exact numbers with retrieved guidance, so the nutrition and exercise tabs work without the chat.
+Prompt 7.1: Nutrition ask and plan guidance
+Add retrieval-backed features to Module 2 (Nutrition).
+
+1. POST /api/nutrition/ask: body {question, session_id?}. Retrieve with search(question, category='nutrition', k=5), build the 'nutrition' prompt with the user's facts and the MacroResult as CALCULATED NUMBERS, and return {answer, sources}. It must never retrieve from the exercise category. Support ?stream=true using the same SSE event format as the chat.
+2. Extend POST /api/nutrition/plan with an optional include_guidance=true flag. When set, add a guidance object with three short sections: 'meal_timing', 'hydration' and 'supplements'. Generate each section from retrieved nutrition passages, include its sources, and omit any section that no passage supports. The numeric fields of the plan must stay exactly as the deterministic code produced them; the LLM only writes the guidance text.
+3. If no nutrition index exists, return 503 with a message that says to run the ingestion command.
+
+Tests with FakeLLMClient and a fake vector store: category isolation (assert the exercise index is never queried), numbers unchanged when guidance is added, an omitted section when no passage supports it, and the 503 case.
+Commit: feat(nutrition): retrieval-backed ask and plan guidance
+Prompt 7.2: Exercise form cues and body-type guidance
+Add retrieval-backed features to Module 3 (Exercises).
+
+1. POST /api/exercises/form-cue: body {exercise_id, question?}. Return the exercise's stored setup, form_cues, common_mistakes and injury_prevention from the catalog, plus an 'extra_guidance' text generated from passages retrieved with category='exercise' (query = the exercise name plus the question, if given). Include the sources. If the question mentions pain or injury, put a clear 'see a qualified professional' note first and do not diagnose.
+2. GET /api/exercises/body-type-guidance: use the somatotype from the user's profile and retrieve exercise-category passages about that body type. Return a short summary with sources.
+3. Return the catalog data even when the vector store is unavailable, with extra_guidance set to null.
+
+Tests: stored cues are always returned, the catalog fallback works with the store missing, the pain note appears for an injury question, and only the exercise category is queried.
+Verify:
+• pytest passes.
+• Ask five nutrition questions and five form questions through the endpoints, and open the cited PDF page for each answer to confirm the claim is there.
+Commit: feat(exercises): retrieval-backed form cues and body-type guidance
+GET /api/exercises/body-type-guidance is an addition to your list. It puts your body-type PDFs to work for the somatotype field in the profile.
+Phase 8: React frontend
+Phase 8 builds the four views from your document on top of a finished, tested API, plus a profile page that feeds all of them.
+Prompt 8.1: App shell, API client and profile
+Create the React frontend in frontend/ with Vite, React 18, TypeScript, React Router, TanStack Query and Tailwind CSS. Also install recharts, react-markdown, openapi-typescript, vitest and @testing-library/react, and nothing else without asking me.
+
+1. App shell with a left navigation of five routes: Coach Chat (/), Macro & Meal Hub (/nutrition), Workout Planner (/workouts), Tracker (/tracker) and Profile (/profile). On mobile, use a bottom tab bar.
+2. src/api/: a typed client with types generated from the backend's OpenAPI schema by openapi-typescript (add an npm script 'gen:api'). Read the API base URL from VITE_API_URL.
+3. A useProfile() hook, and a first-run redirect to /profile when the profile has no weight or height yet.
+4. Profile page: a form for every UserProfile field with validation that matches the backend ranges, a kg/lb toggle that converts displayed values, and a save button with success and error toasts.
+5. Shared components: Button, Card, Field, Select, Toast, Spinner, ErrorBanner. Keep styling consistent and accessible (labels, focus states, keyboard navigation).
+6. Tests: one for profile form validation and one for the first-run redirect.
+Commit: feat(web): app shell and profile
+Prompt 8.2: Coach Chat
+Build the Coach Chat view at route '/'.
+
+1. Layout: a session list on the left (from GET /api/user/sessions, with a new-chat button and delete with confirmation) and the conversation on the right. Opening an old session loads GET /api/user/sessions/{id}/messages.
+2. Streaming: use fetch with a ReadableStream against POST /api/chat/stream (EventSource only supports GET) and parse the SSE events meta, sources, token, pending_action, done and error. Render tokens as they arrive, disable the input while streaming, and add a stop button that aborts the request.
+3. Render assistant messages as markdown. Show cited sources under each answer as collapsible chips of file name and page; clicking [1] in the text highlights the matching chip.
+4. When a pending_action arrives, show a confirmation card listing the parsed sets with editable fields. Confirm calls POST /api/overload/log-set; cancel discards it.
+5. Show the detected intent as a small label on each answer. Show a clear message on error events and offer a retry.
+
+Tests: the SSE parser with a recorded stream, and the pending-action confirmation flow with a mocked fetch.
+Commit: feat(web): coach chat
+Prompt 8.3: Macro and Meal Hub
+Build the Macro & Meal Hub at '/nutrition'.
+
+1. A calculator form pre-filled from the profile (weight, height, age, sex, body fat, activity, goal, somatotype). Changed values are sent as overrides to POST /api/nutrition/calculate-macros.
+2. Result cards for BMR (with the formula name), TDEE and target calories, plus a donut chart of protein, carbs and fat in grams and calories. Show warnings, such as the calorie floor, prominently.
+3. A meal plan section with meals-per-day and training-time inputs that calls POST /api/nutrition/plan with include_guidance=true. Show meal slots as a timeline, the hydration target, and the guidance sections with their sources.
+4. An 'Ask about nutrition' box that streams from POST /api/nutrition/ask?stream=true, reusing the chat's message and source components.
+5. Loading skeletons, error states, and a print-friendly layout for the meal plan.
+
+Tests: overrides are sent correctly, warnings render, and chart totals equal the daily numbers.
+Commit: feat(web): macro and meal hub
+Prompt 8.4: Workout Planner
+Build the Workout Planner at '/workouts'.
+
+1. Exercise browser: filter chips for muscle group and equipment, name search, and a result grid from GET /api/exercises/catalog.
+2. Exercise detail drawer: setup steps, form cues, common mistakes, injury prevention, and an 'Ask for more detail' input that calls POST /api/exercises/form-cue and shows the extra guidance with its sources.
+3. Routine generator: a form for split, days per week, goal, experience and equipment that calls POST /api/exercises/generate-routine. Show days as columns (stacked on mobile) with sets, rep ranges and rest, plus a bar chart of weekly sets per muscle with the target range marked. Show the generator's warnings.
+4. A 'Start logging' button on each routine day that opens the Tracker with that day's exercises preloaded.
+5. A body-type panel that shows GET /api/exercises/body-type-guidance.
+
+Tests: filters build the right query string, routine rendering, and the Start logging hand-off.
+Commit: feat(web): workout planner
+Prompt 8.5: Tracker and progression log
+Build the Tracker and Progression Log at '/tracker'.
+
+1. Session logger: pick an exercise (searchable), then add sets quickly with weight, reps, RPE or RIR, a kg/lb toggle that remembers its choice, and a 'copy last set' button. At the top, show the next-session recommendation card from GET /api/overload/recommendation/{exercise_id} with the main target, the alternative and the reason.
+2. Submit the session with POST /api/overload/log-set as a list of sets. Update the history optimistically and show errors per set.
+3. History: for the selected exercise, a table grouped by date and a line chart of estimated 1RM and top-set weight over time, with a plateau or deload banner when the recommendation says so.
+4. Weekly volume: a bar chart of effective sets per muscle group from GET /api/overload/volume, with the 10-20 range shaded and a week selector.
+5. Helpful empty states for first use.
+
+Tests: set entry and the submission payload, unit conversion display, banner logic, and the empty state.
+Verify the whole phase together:
+• Start the backend and npm run dev.
+• Create a profile, ask the coach a nutrition question, type a workout into the chat, confirm the logged sets, then check the Tracker and the volume chart.
+Commit: feat(web): tracker and progression log
+Phase 9: Testing, hardening and deployment
+Phase 9 proves the numbers and the retrieval hold up under bad input, then packages the app so it runs the same way anywhere.
+Prompt 9.1: Test hardening
+Audit and strengthen the test suite without changing behavior.
+
+1. Add pytest-cov as a dev dependency and report coverage. Raise coverage of calculator.py, algorithms.py, generator.py and the services to at least 90 percent, and list any branch you decide not to cover.
+2. Add edge-case tests: extreme profiles (very light, very heavy, very high body fat), the calorie floor for both sexes, a progression history with missing RPE, a single logged set, a deload week, and kg and lb logs mixed in one history.
+3. Add contract tests: every endpoint built in Phases 1 to 7 exists, validates input and returns the documented shape. The test fails if an endpoint is added or removed without updating it.
+4. Add a test that no router.py imports another module's models or database session directly.
+5. Run everything and report the failures you find in the code itself before fixing them. Fix real bugs, but never weaken a test to make it pass.
+Commit: test: coverage, edge cases and contract tests
+Prompt 9.2: RAG quality and guardrails
+Harden the AI layer.
+
+1. Grounding evaluation: extend scripts/rag_smoke.py into scripts/rag_eval.py. For the 20 questions I supply in tests/rag_eval.json (question, category, expected source, key facts), run the full pipeline with the real LLM and report: retrieval hit rate at k=5, whether each answer cites a source, whether each key fact appears, and any answer containing a number that is in neither CALCULATED NUMBERS nor the retrieved context. Print a table and save it to reports/rag_eval.md.
+2. Guardrail tests: crash diets below the calorie floor, anabolic steroid dosing and injury diagnosis are refused or redirected; off-topic questions get a short redirect; and prompt-injection text inside a retrieved passage ('ignore previous instructions') changes nothing, because retrieved text is always data inside the CONTEXT block.
+3. Reliability: timeouts and one retry with backoff on LLM calls; a per-IP rate limit on /api/chat and /api/chat/stream (30 requests per minute, editable) using slowapi; structured JSON logging with a request id; no API keys and no full user messages in logs.
+4. Make the debug search endpoint unreachable when DEBUG is false, and add a test for it.
+Commit: feat(rag): evaluation, guardrails and reliability
+Prompt 9.3: Deployment
+Prepare deployment.
+
+1. Replace create_all with Alembic migrations (add alembic and psycopg[binary]): an initial migration for all tables, an upgrade step that runs at start-up, and a documented way to generate the next migration.
+2. backend/Dockerfile (slim Python image, non-root user, the embedding model downloaded at build time) and frontend/Dockerfile (build, then serve with nginx).
+3. docker-compose.yml with backend, frontend and PostgreSQL, a volume for the vectorstore and one for the PDFs, and settings from a .env file. Prove the whole backend test suite also passes against PostgreSQL.
+4. A GitHub Actions workflow that runs the backend tests, the frontend tests, the frontend build, and a check that the generated OpenAPI types are up to date.
+5. Update the README: local setup, how to add a new PDF (edit manifest.json, run the ingest command), environment variables, backing up the database and vectorstore, and troubleshooting.
+Verify:
+• pytest --cov meets the targets and python scripts/rag_eval.py produces a report you are happy with.
+• docker compose up starts the full stack, and the Phase 8 end-to-end walkthrough works on PostgreSQL.
+Commit: chore: migrations, containers and CI
+The 90 percent coverage target and the 30 requests per minute limit are starting points; change them to fit your traffic and risk.
+Build-order checklist
+Tick a phase only when its gate is true, and fix a failing gate before you paste the next prompt.
+[ ] Phase 0: the app starts, /api/health answers, and the tests run.
+[ ] Phase 1: the profile and chat sessions survive a server restart.
+[ ] Phase 2: macros match an independent TDEE calculator for a real person.
+[ ] Phase 3: every split gives a routine a coach would accept, with at least 8 exercises per muscle group.
+[ ] Phase 4: the 80 kg example returns 80 kg for 3x9 or 82.5 kg for 3x6, and weekly volume matches a hand count.
+[ ] Phase 5: the smoke test finds the expected source in the top 5 for most of your 10 questions.
+[ ] Phase 6: streaming chat handles all five intents, quotes the calculated numbers, cites sources, and never logs a set without confirmation.
+[ ] Phase 7: nutrition answers cite only nutrition PDFs, and form cues still work with the vector store switched off.
+[ ] Phase 8: the end-to-end walkthrough works in the browser at desktop and phone width.
+[ ] Phase 9: coverage and evaluation targets are met, and docker compose up runs the full stack on PostgreSQL.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-24T01:24:56+01:00.
+
+The user's current state is as follows:
+Active Document: c:\Users\nessi\OneDrive\Desktop\gym_rag_data\backend\rag_engine.py (LANGUAGE_PYTHON)
+Cursor is on line: 1
+Other open documents:
+- c:\Users\nessi\OneDrive\Desktop\gym_rag_data\backend\rag_engine.py (LANGUAGE_PYTHON)
+- c:\Users\nessi\OneDrive\Desktop\gym_rag_data\backend\main.py (LANGUAGE_PYTHON)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from Gemini 3.8 Flash (Medium) to Claude Sonnet 4.6 (Thinking). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

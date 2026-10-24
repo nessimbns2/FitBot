@@ -1,26 +1,31 @@
 #!/bin/bash
-
-# Exit immediately if any command fails
 set -e
 
-# Start Ollama service in the background
-echo "🚀 Starting Ollama service..."
-ollama serve &
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Wait for Ollama service to start listening on port 11434
-echo "⏳ Waiting for Ollama service to initialize..."
-until curl -s http://127.0.0.1:11434/api/tags > /dev/null; do
-    sleep 1
-done
+echo "🏋️  Starting FitBot Full-Stack App..."
 
-echo "✅ Ollama service is up and running!"
+# 1. Start FastAPI backend
+echo " Starting FastAPI backend on http://127.0.0.1:8000..."
+python -m uvicorn main_v2:app --host 0.0.0.0 --port "${PORT:-8000}" --reload &
 
-# Pull the models at runtime
-echo "⏳ Checking and pulling AI models (this will only download on first cold-start)..."
-ollama pull nomic-embed-text
-ollama pull llama3.2:3b
+BACKEND_PID=$!
 
-# Start the FastAPI application
-echo "🚀 Starting FastAPI application..."
-cd backend
-python main.py
+# 2. Start Vite frontend
+echo " Starting Vite frontend on http://localhost:5173..."
+cd "$ROOT_DIR/frontend"
+npm run dev &
+FRONTEND_PID=$!
+
+echo ""
+echo "✅ Both services are running!"
+echo "   - Frontend: http://localhost:5173"
+echo "   - Backend API: http://127.0.0.1:8000"
+echo "   - API Docs: http://127.0.0.1:8000/docs"
+echo ""
+echo "Press Ctrl+C to stop both servers."
+
+# Trap termination signals to kill both processes gracefully
+trap 'echo "🛑 Stopping services..."; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; wait $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit 0' SIGINT SIGTERM EXIT
+
+wait

@@ -1,0 +1,124 @@
+{
+  "questions": [
+    {
+      "id": "eval_nut_01",
+      "category": "nutrition",
+      "query": "What are optimal daily protein intake recommendations for muscle hypertrophy?",
+      "expected_keywords": ["protein", "hypertrophy", "gram", "bodyweight"]
+    },
+    {
+      "id": "eval_nut_02",
+      "category": "nutrition",
+      "query": "How does caloric deficit affect fat loss and metabolic rate?",
+      "expected_keywords": ["deficit", "fat", "calorie", "metabolic"]
+    },
+    {
+      "id": "eval_nut_03",
+      "category": "nutrition",
+      "query": "What are the recommended pre-workout and post-workout carbohydrate timings?",
+      "expected_keywords": ["carb", "timing", "pre-workout", "post-workout"]
+    },
+    {
+      "id": "eval_nut_04",
+      "category": "nutrition",
+      "query": "What role does hydration and electrolyte balance play in athletic endurance?",
+      "expected_keywords": ["hydration", "water", "electrolyte", "endurance"]
+    },
+    {
+      "id": "eval_nut_05",
+      "category": "nutrition",
+      "query": "What are the essential fatty acids and why are dietary fats crucial for hormones?",
+      "expected_keywords": ["fat", "essential", "hormone", "fatty"]
+    },
+    {
+      "id": "eval_nut_06",
+      "category": "nutrition",
+      "query": "What are the evidence-based benefits and dosage protocols for creatine monohydrate?",
+      "expected_keywords": ["creatine", "monohydrate", "dosage", "performance"]
+    },
+    {
+      "id": "eval_nut_07",
+      "category": "nutrition",
+      "query": "How should an endomorph alter carbohydrate and fat distribution?",
+      "expected_keywords": ["endomorph", "carb", "fat", "insulin"]
+    },
+    {
+      "id": "eval_nut_08",
+      "category": "nutrition",
+      "query": "What are micronutrient requirements for calcium, vitamin D, and iron in athletes?",
+      "expected_keywords": ["vitamin", "mineral", "calcium", "iron"]
+    },
+    {
+      "id": "eval_nut_09",
+      "category": "nutrition",
+      "query": "How many meals per day optimize muscle protein synthesis (MPS)?",
+      "expected_keywords": ["protein", "synthesis", "meal", "frequency"]
+    },
+    {
+      "id": "eval_nut_10",
+      "category": "nutrition",
+      "query": "What are safe refeed and diet break strategies during prolonged dieting?",
+      "expected_keywords": ["refeed", "diet", "leptin", "break"]
+    },
+    {
+      "id": "eval_exe_01",
+      "category": "exercise",
+      "query": "What is the proper bar path and foot stance for the barbell back squat?",
+      "expected_keywords": ["squat", "bar", "stance", "depth"]
+    },
+    {
+      "id": "eval_exe_02",
+      "category": "exercise",
+      "query": "How should scapular retraction and arch be maintained during the barbell bench press?",
+      "expected_keywords": ["bench", "scapula", "arch", "chest"]
+    },
+    {
+      "id": "eval_exe_03",
+      "category": "exercise",
+      "query": "What are hip hinge cues to prevent lower back rounding on conventional deadlifts?",
+      "expected_keywords": ["deadlift", "hinge", "spine", "back"]
+    },
+    {
+      "id": "eval_exe_04",
+      "category": "exercise",
+      "query": "What is the overhead press overhead lockout position and core bracing protocol?",
+      "expected_keywords": ["overhead", "press", "brace", "lockout"]
+    },
+    {
+      "id": "eval_exe_05",
+      "category": "exercise",
+      "query": "How do pull-ups versus lat pulldowns recruit back musculature?",
+      "expected_keywords": ["pull-up", "pulldown", "lat", "grip"]
+    },
+    {
+      "id": "eval_exe_06",
+      "category": "exercise",
+      "query": "What are key differences between Romanian deadlift and conventional deadlift?",
+      "expected_keywords": ["romanian", "deadlift", "hamstring", "knee"]
+    },
+    {
+      "id": "eval_exe_07",
+      "category": "exercise",
+      "query": "How to perform dumbbell lateral raises to maximize lateral deltoid isolation?",
+      "expected_keywords": ["lateral", "raise", "delt", "elbow"]
+    },
+    {
+      "id": "eval_exe_08",
+      "category": "exercise",
+      "query": "What are proper barbell hip thrust form cues for glute activation?",
+      "expected_keywords": ["hip", "thrust", "glute", "pelvis"]
+    },
+    {
+      "id": "eval_exe_09",
+      "category": "exercise",
+      "query": "How does grip width affect triceps engagement on the close grip bench press?",
+      "expected_keywords": ["grip", "tricep", "elbow", "bench"]
+    },
+    {
+      "id": "eval_exe_10",
+      "category": "exercise",
+      "query": "What is the ideal range of motion and knee alignment for walking lunges?",
+      "expected_keywords": ["lunge", "knee", "stride", "torso"]
+    }
+  ]
+}
