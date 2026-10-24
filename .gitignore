@@ -50,3 +50,12 @@ reports/
 
 # ── Alembic (added in Phase 9) ────────────────────────────────────────────────
 # backend/alembic/versions/*.py  # keep under version control
+
+# ── LaTeX Build Artifacts ─────────────────────────────────────────────────────
+*.aux
+*.fls
+*.fdb_latexmk
+*.log
+*.out
+*.toc
+*.synctex.gz
