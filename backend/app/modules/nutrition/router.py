@@ -328,46 +328,9 @@ def scan_meal(
     meal_slot_context = f" (Tagged as: {req.meal_slot})" if req.meal_slot else ""
 
     # 2. Vision prompt enforcing strictly structured JSON
-    prompt = f"""You are an elite sports nutritionist and computer vision food analyst.
-Analyze this meal image{meal_slot_context}.
-Identify each distinct food item on the plate, estimate realistic portion sizes (in grams or standard units), and calculate calories and macronutrients (protein, carbohydrates, dietary fat).
+    from app.prompts import MEAL_SCAN_VISION_PROMPT
 
-Return ONLY a valid JSON object matching this schema exactly (no markdown formatting, no code blocks):
-{{
-  "meal_name": "Short descriptive meal title (e.g., Grilled Chicken Breast with Brown Rice & Broccoli)",
-  "confidence": "high" | "medium" | "low",
-  "total_calories": 550,
-  "protein_g": 48.0,
-  "carbs_g": 52.0,
-  "fat_g": 12.0,
-  "food_items": [
-    {{
-      "name": "Grilled Chicken Breast",
-      "portion_est": "200g (cooked)",
-      "calories": 330,
-      "protein_g": 42.0,
-      "carbs_g": 0.0,
-      "fat_g": 7.0
-    }},
-    {{
-      "name": "Steamed Brown Rice",
-      "portion_est": "1 cup (150g)",
-      "calories": 180,
-      "protein_g": 4.0,
-      "carbs_g": 38.0,
-      "fat_g": 1.5
-    }},
-    {{
-      "name": "Steamed Broccoli Florets",
-      "portion_est": "100g",
-      "calories": 40,
-      "protein_g": 2.0,
-      "carbs_g": 7.0,
-      "fat_g": 0.5
-    }}
-  ],
-  "coaching_tip": "One concise evidence-based tip on how this meal aligns with fitness/recovery goals."
-}}"""
+    prompt = MEAL_SCAN_VISION_PROMPT.format(meal_slot_context=meal_slot_context)
 
     # 3. Call Gemini Vision
     try:

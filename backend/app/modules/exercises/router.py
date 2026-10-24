@@ -242,9 +242,10 @@ def get_body_type_guidance(
         if passages:
             sources = [{"source": p.source, "page": p.page, "score": round(p.score, 4)} for p in passages]
             llm = get_llm_client()
+            from app.prompts import SOMATOTYPE_EXERCISE_USER_TEMPLATE
             context_str = "\n".join(f"[{i+1}] {p.text}" for i, p in enumerate(passages))
             guidance = llm.complete(
-                messages=[{"role": "user", "content": f"Summarize key training advice for an {somatotype}."}],
+                messages=[{"role": "user", "content": SOMATOTYPE_EXERCISE_USER_TEMPLATE.format(somatotype=somatotype)}],
                 system=f"Context:\n{context_str}",
             )
     except Exception:
@@ -396,13 +397,19 @@ def ai_suggest_exercise(
 
     reason = default_reason
     try:
+        from app.prompts import ROUTINE_SUGGESTION_SYSTEM_PROMPT, ROUTINE_SUGGESTION_USER_TEMPLATE
+
         llm = get_llm_client()
-        sys_prompt = "You are an elite evidence-based fitness coach. Provide a concise 1-2 sentence rationale for adding an exercise to a routine."
-        user_msg = (
-            f"The user's routine currently has only {current_sets} weekly sets for {target_muscle} (target is {target_sets}-20 sets). "
-            f"Why is adding {chosen_ex.name} (3 sets of {rep_range}) to {target_day_name} the ideal addition for their {req.goal} goal?"
+        user_msg = ROUTINE_SUGGESTION_USER_TEMPLATE.format(
+            current_sets=current_sets,
+            target_muscle=target_muscle,
+            target_sets=target_sets,
+            exercise_name=chosen_ex.name,
+            rep_range=rep_range,
+            target_day_name=target_day_name,
+            goal=req.goal,
         )
-        ai_resp = llm.complete(messages=[{"role": "user", "content": user_msg}], system=sys_prompt)
+        ai_resp = llm.complete(messages=[{"role": "user", "content": user_msg}], system=ROUTINE_SUGGESTION_SYSTEM_PROMPT)
         if ai_resp and len(ai_resp.strip()) > 10:
             reason = ai_resp.strip()
     except Exception:
