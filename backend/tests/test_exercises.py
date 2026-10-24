@@ -206,3 +206,69 @@ def test_api_generate_routine_with_profile_fallback(client):
     assert "days" in data
     assert len(data["days"]) == 4
     assert "weekly_sets_per_muscle" in data
+
+
+def test_api_ai_suggest_exercise_with_deficit(client):
+    routine_payload = {
+        "routine": {
+            "split_type": "push_pull_legs",
+            "days": [
+                {
+                    "name": "Day 1: Push",
+                    "focus": "Chest, Shoulders, Triceps",
+                    "exercises": [
+                        {"exercise_id": "barbell-bench-press", "primary_muscle": "chest", "sets": 3, "rep_range": "8-12"}
+                    ],
+                },
+                {
+                    "name": "Day 2: Pull",
+                    "focus": "Back, Biceps",
+                    "exercises": [
+                        {"exercise_id": "barbell-bent-over-row", "primary_muscle": "back", "sets": 4, "rep_range": "8-12"}
+                    ],
+                },
+            ]
+        },
+        "goal": "hypertrophy",
+        "experience_level": "intermediate",
+    }
+    res = client.post("/api/exercises/ai-suggest-exercise", json=routine_payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["is_all_good"] is False
+    assert data["suggested_exercise"] is not None
+    assert "exercise_id" in data["suggested_exercise"]
+    assert "reason" in data["suggested_exercise"]
+    assert data["suggested_exercise"]["sets"] >= 1
+
+
+def test_api_ai_suggest_exercise_all_good(client):
+    # Routine that fulfills all muscle group targets
+    routine_payload = {
+        "routine": {
+            "split_type": "full_body",
+            "days": [
+                {
+                    "name": "Day 1",
+                    "focus": "Full Body",
+                    "exercises": [
+                        {"exercise_id": "barbell-bench-press", "primary_muscle": "chest", "sets": 10},
+                        {"exercise_id": "barbell-bent-over-row", "primary_muscle": "back", "sets": 10},
+                        {"exercise_id": "barbell-back-squat", "primary_muscle": "quads", "sets": 10},
+                        {"exercise_id": "romanian-deadlift", "primary_muscle": "hamstrings", "sets": 10},
+                        {"exercise_id": "overhead-press", "primary_muscle": "delts", "sets": 10},
+                        {"exercise_id": "barbell-curl", "primary_muscle": "arms", "sets": 10},
+                        {"exercise_id": "hanging-leg-raise", "primary_muscle": "core", "sets": 8},
+                    ],
+                }
+            ]
+        },
+        "goal": "hypertrophy",
+        "experience_level": "intermediate",
+    }
+    res = client.post("/api/exercises/ai-suggest-exercise", json=routine_payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["is_all_good"] is True
+    assert "all good" in data["message"].lower()
+    assert data["suggested_exercise"] is None

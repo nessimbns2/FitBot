@@ -18,6 +18,7 @@ import {
   generateRoutine,
   getFormCue,
   getBodyTypeGuidance,
+  getAISuggestExercise,
 } from '../api/client';
 import {
   PageHeader,
@@ -56,6 +57,7 @@ import {
   Trash2,
   RotateCcw,
   Check,
+  Edit3,
 } from 'lucide-react';
 
 
@@ -153,6 +155,38 @@ export function WorkoutsView() {
   const [modalSearch, setModalSearch] = useState<string>('');
   const [modalMuscle, setModalMuscle] = useState<string>('all');
   const [modalEquipment, setModalEquipment] = useState<string>('all');
+
+  // Edit Sets & Reps Modal State
+  const [editSetsModal, setEditSetsModal] = useState<{
+    isOpen: boolean;
+    dayIndex: number;
+    exerciseIndex: number;
+    exerciseName: string;
+    muscle: string;
+    sets: number;
+    repRange: string;
+    restSec: number;
+  } | null>(null);
+
+  // AI Suggest Routine State
+  const [isAnalyzingRoutine, setIsAnalyzingRoutine] = useState<boolean>(false);
+  const [aiSuggestResult, setAiSuggestResult] = useState<{
+    isOpen: boolean;
+    isAllGood: boolean;
+    message: string;
+    suggestedExercise?: {
+      exercise_id: string;
+      name: string;
+      primary_muscle: string;
+      equipment: string;
+      day_index: number;
+      day_name: string;
+      sets: number;
+      rep_range: string;
+      reason: string;
+    } | null;
+    volumeAnalysis?: any;
+  } | null>(null);
 
   // Somatotype Tip State
   const [bodyTypeGuidance, setBodyTypeGuidance] = useState<{ somatotype: string; guidance: string } | null>(null);
@@ -330,6 +364,115 @@ export function WorkoutsView() {
     });
   };
 
+  const openEditSetsModal = (dayIndex: number, exerciseIndex: number, ex: any) => {
+    setEditSetsModal({
+      isOpen: true,
+      dayIndex,
+      exerciseIndex,
+      exerciseName: ex.name || ex.exercise_name || 'Exercise',
+      muscle: ex.primary_muscle || '',
+      sets: Number(ex.sets) || 3,
+      repRange: ex.rep_range || '8-12',
+      restSec: Number(ex.rest_seconds || ex.rest_sec) || 90,
+    });
+  };
+
+  const handleSaveCustomSetsReps = () => {
+    if (!routineResult || !editSetsModal) return;
+
+    const days = [...routineResult.days];
+    const targetDay = { ...days[editSetsModal.dayIndex] };
+    const exercisesList = [...targetDay.exercises];
+    const curr = { ...exercisesList[editSetsModal.exerciseIndex] };
+
+    curr.sets = editSetsModal.sets;
+    curr.rep_range = editSetsModal.repRange;
+    curr.rest_sec = editSetsModal.restSec;
+    curr.rest_seconds = editSetsModal.restSec;
+
+    exercisesList[editSetsModal.exerciseIndex] = curr;
+    targetDay.exercises = exercisesList;
+    days[editSetsModal.dayIndex] = targetDay;
+
+    const updatedVolume = recalculateVolume(days);
+    const updatedRoutine: RoutineResult = {
+      ...routineResult,
+      days,
+      weekly_volume_per_muscle: updatedVolume,
+    };
+
+    saveRoutine(updatedRoutine);
+    setToast({
+      type: 'success',
+      message: `Updated ${curr.name || curr.exercise_name}: ${editSetsModal.sets} sets × ${editSetsModal.repRange}`,
+    });
+    setEditSetsModal(null);
+  };
+
+  const handleAISuggestExercise = async () => {
+    if (!routineResult) {
+      setToast({ type: 'error', message: 'Please generate or load a routine first.' });
+      return;
+    }
+    setIsAnalyzingRoutine(true);
+    try {
+      const res = await getAISuggestExercise(
+        routineResult,
+        profile?.goal || 'hypertrophy',
+        profile?.experience_level || 'intermediate'
+      );
+      setAiSuggestResult({
+        isOpen: true,
+        isAllGood: res.is_all_good,
+        message: res.message,
+        suggestedExercise: res.suggested_exercise,
+        volumeAnalysis: res.volume_analysis,
+      });
+    } catch (err: any) {
+      setToast({ type: 'error', message: err.message || 'Failed to analyze routine' });
+    } finally {
+      setIsAnalyzingRoutine(false);
+    }
+  };
+
+  const handleApplyAISuggestion = () => {
+    if (!routineResult || !aiSuggestResult?.suggestedExercise) return;
+    const sug = aiSuggestResult.suggestedExercise;
+
+    const days = [...routineResult.days];
+    const targetDayIdx = Math.min(sug.day_index, days.length - 1);
+    const targetDay = { ...days[targetDayIdx] };
+    const exercisesList = [...targetDay.exercises];
+
+    exercisesList.push({
+      exercise_id: sug.exercise_id,
+      exercise_name: sug.name,
+      name: sug.name,
+      primary_muscle: sug.primary_muscle,
+      sets: sug.sets || 3,
+      rep_range: sug.rep_range || '8-12',
+      rpe_target: 8,
+      rest_sec: 90,
+      rest_seconds: 90,
+    });
+
+    targetDay.exercises = exercisesList;
+    days[targetDayIdx] = targetDay;
+
+    const updatedVolume = recalculateVolume(days);
+    const updatedRoutine: RoutineResult = {
+      ...routineResult,
+      days,
+      weekly_volume_per_muscle: updatedVolume,
+    };
+
+    saveRoutine(updatedRoutine);
+    setToast({
+      type: 'success',
+      message: `Added ${sug.name} to Day ${targetDayIdx + 1}!`,
+    });
+    setAiSuggestResult(null);
+  };
 
   const openExerciseDrawer = async (ex: ExerciseCatalogItem) => {
     setActiveExercise(ex);
@@ -549,6 +692,32 @@ export function WorkoutsView() {
 
               {/* Right Column: Routine Day Cards (8 cols) */}
               <div className="lg:col-span-8 space-y-6">
+                {/* AI Routine Assistant Card / Action */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--bg-card)] p-4 rounded-2xl border border-[var(--border-subtle)] shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[var(--accent-primary-subtle)] text-[var(--accent-text)] flex items-center justify-center font-bold">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                        AI Routine Assistant
+                      </h4>
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        Analyze muscle volume balance and discover missing exercises
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={handleAISuggestExercise}
+                    disabled={isAnalyzingRoutine || !routineResult}
+                    leftIcon={isAnalyzingRoutine ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  >
+                    {isAnalyzingRoutine ? 'Analyzing Routine...' : 'AI Suggest Exercise'}
+                  </Button>
+                </div>
+
                 {isGenerating ? (
                   <div className="space-y-4">
                     <Skeleton variant="card" height={160} />
@@ -599,9 +768,19 @@ export function WorkoutsView() {
                                 </div>
 
                                 <div className="flex items-center gap-2 shrink-0">
-                                  <Badge variant="accent" size="md">
-                                    {ex.sets} × {ex.rep_range}
-                                  </Badge>
+                                  {/* Clickable Sets & Reps badge with direct customization dialog */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openEditSetsModal(dIdx, exIdx, ex);
+                                    }}
+                                    title="Click to customize sets and reps"
+                                    className="group/badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--accent-primary-subtle)] hover:bg-[var(--accent-primary)]/20 border border-[var(--accent-primary)]/30 text-[var(--accent-text)] font-mono text-xs font-bold transition-all cursor-pointer"
+                                  >
+                                    <span>{ex.sets} × {ex.rep_range}</span>
+                                    <Edit3 className="w-3 h-3 opacity-60 group-hover/badge:opacity-100 transition-opacity" />
+                                  </button>
                                   <Button
                                     variant="secondary"
                                     size="xs"
@@ -911,6 +1090,222 @@ export function WorkoutsView() {
                   );
                 })}
             </div>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Customize Sets & Reps Modal */}
+      {editSetsModal && (
+        <Dialog
+          isOpen={editSetsModal.isOpen}
+          onClose={() => setEditSetsModal(null)}
+          title={`Customize ${editSetsModal.exerciseName}`}
+          description={
+            <span className="capitalize text-xs text-[var(--accent-text)] font-semibold">
+              {editSetsModal.muscle} target · Adjust volume and repetition range
+            </span>
+          }
+          maxWidth="sm"
+        >
+          <div className="space-y-5 pt-2">
+            {/* Sets Stepper */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                  Working Sets
+                </label>
+                <span className="text-xs font-mono font-bold text-[var(--accent-text)]">
+                  {editSetsModal.sets} {editSetsModal.sets === 1 ? 'set' : 'sets'}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditSetsModal(prev => prev ? { ...prev, sets: Math.max(1, prev.sets - 1) } : null)}
+                  disabled={editSetsModal.sets <= 1}
+                  className="w-10 h-10 rounded-xl bg-[var(--bg-subtle)] hover:bg-[var(--accent-primary-subtle)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-primary)] hover:text-[var(--accent-text)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-bold text-lg cursor-pointer"
+                >
+                  -
+                </button>
+                <div className="flex-1 py-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] text-center font-bold text-lg text-[var(--text-primary)] font-mono">
+                  {editSetsModal.sets}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditSetsModal(prev => prev ? { ...prev, sets: Math.min(10, prev.sets + 1) } : null)}
+                  disabled={editSetsModal.sets >= 10}
+                  className="w-10 h-10 rounded-xl bg-[var(--bg-subtle)] hover:bg-[var(--accent-primary-subtle)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-primary)] hover:text-[var(--accent-text)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-bold text-lg cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Rep Range Selection */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                  Target Rep Range
+                </label>
+                <span className="text-xs font-mono font-bold text-[var(--text-primary)]">
+                  {editSetsModal.repRange} reps
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {['5', '6-8', '8-12', '10-12', '12-15', '15-20'].map((range) => (
+                  <button
+                    key={range}
+                    type="button"
+                    onClick={() => setEditSetsModal(prev => prev ? { ...prev, repRange: range } : null)}
+                    className={`py-2 px-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                      editSetsModal.repRange === range
+                        ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-xs'
+                        : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:border-[var(--accent-primary)]/50'
+                    }`}
+                  >
+                    {range}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={editSetsModal.repRange}
+                onChange={(e) => setEditSetsModal(prev => prev ? { ...prev, repRange: e.target.value } : null)}
+                placeholder="Custom rep range (e.g. 5x5, 10-12)"
+                className="w-full mt-1 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--border-focused)]"
+              />
+            </div>
+
+            {/* Rest Seconds */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] block">
+                Rest Between Sets
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {[60, 90, 120, 180].map((sec) => (
+                  <button
+                    key={sec}
+                    type="button"
+                    onClick={() => setEditSetsModal(prev => prev ? { ...prev, restSec: sec } : null)}
+                    className={`py-2 px-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                      editSetsModal.restSec === sec
+                        ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-xs'
+                        : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:border-[var(--accent-primary)]/50'
+                    }`}
+                  >
+                    {sec}s
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Dialog Footer Actions */}
+            <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border-subtle)]">
+              <Button variant="ghost" size="sm" onClick={() => setEditSetsModal(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveCustomSetsReps}
+                leftIcon={<Check className="w-3.5 h-3.5" />}
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {/* AI Suggest Routine Dialog */}
+      {aiSuggestResult && (
+        <Dialog
+          isOpen={aiSuggestResult.isOpen}
+          onClose={() => setAiSuggestResult(null)}
+          title="AI Routine Coach Analysis"
+          description="Evidence-based weekly volume & exercise balance evaluation"
+          maxWidth="md"
+        >
+          <div className="space-y-5 pt-2">
+            {aiSuggestResult.isAllGood ? (
+              <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-emerald-400">Everything Looks Great!</h4>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed max-w-md mx-auto">
+                    {aiSuggestResult.message}
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <Button variant="primary" size="sm" onClick={() => setAiSuggestResult(null)}>
+                    Keep Current Routine
+                  </Button>
+                </div>
+              </div>
+            ) : aiSuggestResult.suggestedExercise ? (
+              <div className="space-y-4">
+                {/* Coach Alert */}
+                <div className="p-4 rounded-xl bg-[var(--accent-primary-subtle)] border border-[var(--accent-primary)]/20 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[var(--accent-text)] uppercase tracking-wider">
+                    <Sparkles className="w-4 h-4" /> Recommended Addition
+                  </div>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    {aiSuggestResult.message}
+                  </p>
+                </div>
+
+                {/* Exercise Card Preview */}
+                <div className="p-4 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-base font-bold text-[var(--text-primary)]">
+                        {aiSuggestResult.suggestedExercise.name}
+                      </h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="accent" size="sm">
+                          {aiSuggestResult.suggestedExercise.primary_muscle}
+                        </Badge>
+                        <Badge variant="neutral" size="sm">
+                          {aiSuggestResult.suggestedExercise.equipment}
+                        </Badge>
+                        <span className="text-xs text-[var(--text-muted)] font-mono">
+                          Add to: Day {aiSuggestResult.suggestedExercise.day_index + 1} ({aiSuggestResult.suggestedExercise.day_name})
+                        </span>
+                      </div>
+                    </div>
+                    <Badge variant="accent" size="md">
+                      {aiSuggestResult.suggestedExercise.sets} sets × {aiSuggestResult.suggestedExercise.rep_range}
+                    </Badge>
+                  </div>
+
+                  {/* Coach's Reasoning */}
+                  <div className="p-3 rounded-xl bg-[var(--bg-card)] border-l-2 border-[var(--accent-primary)] text-xs text-[var(--text-secondary)] italic leading-relaxed">
+                    "{aiSuggestResult.suggestedExercise.reason}"
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
+                  <Button variant="ghost" size="sm" onClick={() => setAiSuggestResult(null)}>
+                    Not Now
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleApplyAISuggestion}
+                    leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  >
+                    Add to Day {aiSuggestResult.suggestedExercise.day_index + 1}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 text-center text-xs text-[var(--text-secondary)]">
+                {aiSuggestResult.message}
+              </div>
+            )}
           </div>
         </Dialog>
       )}

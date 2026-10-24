@@ -118,6 +118,17 @@ export async function getBodyTypeGuidance() {
   return request('/api/exercises/body-type-guidance');
 }
 
+export async function getAISuggestExercise(routineData, goal = 'hypertrophy', experienceLevel = 'intermediate') {
+  return request('/api/exercises/ai-suggest-exercise', {
+    method: 'POST',
+    body: JSON.stringify({
+      routine: routineData,
+      goal,
+      experience_level: experienceLevel,
+    }),
+  });
+}
+
 // ── Progressive Overload ──────────────────────────────────────────────────────
 
 export async function logWorkoutSet(setData) {

@@ -16,6 +16,7 @@ from app.modules.exercises.catalog import (
     Exercise,
     MovementPattern,
     MuscleGroup,
+    get_catalog,
 )
 from app.modules.exercises.generator import (
     RoutineResult,
@@ -61,6 +62,31 @@ class BodyTypeGuidanceResponse(BaseModel):
     somatotype: str
     guidance: str
     sources: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ExerciseSuggestionItem(BaseModel):
+    exercise_id: str
+    name: str
+    primary_muscle: str
+    equipment: str
+    day_index: int
+    day_name: str
+    sets: int = 3
+    rep_range: str = "8-12"
+    reason: str
+
+
+class AISuggestExerciseRequest(BaseModel):
+    routine: Dict[str, Any]
+    goal: Optional[str] = "hypertrophy"
+    experience_level: Optional[str] = "intermediate"
+
+
+class AISuggestExerciseResponse(BaseModel):
+    is_all_good: bool
+    message: str
+    suggested_exercise: Optional[ExerciseSuggestionItem] = None
+    volume_analysis: Dict[str, Any] = Field(default_factory=dict)
 
 
 @router.get(
@@ -228,4 +254,178 @@ def get_body_type_guidance(
         somatotype=somatotype,
         guidance=guidance,
         sources=sources,
+    )
+
+
+@router.post(
+    "/ai-suggest-exercise",
+    response_model=AISuggestExerciseResponse,
+    summary="AI analysis of routine balance and exercise suggestion",
+)
+def ai_suggest_exercise(
+    req: AISuggestExerciseRequest,
+) -> AISuggestExerciseResponse:
+    """Analyze current routine volume, muscle balance, and suggest an exercise to add or confirm all is good."""
+    days = req.routine.get("days", [])
+    if not days:
+        return AISuggestExerciseResponse(
+            is_all_good=False,
+            message="No workout days found in your routine to analyze. Generate or add workout days first.",
+            volume_analysis={},
+        )
+
+    catalog = get_catalog()
+    weekly_sets: Dict[str, int] = {}
+    existing_exercise_ids: set[str] = set()
+
+    for day in days:
+        for ex in day.get("exercises", []):
+            ex_id = ex.get("exercise_id") or ex.get("id") or ""
+            if ex_id:
+                existing_exercise_ids.add(ex_id)
+
+            cat_ex = catalog.get(ex_id)
+            muscle = ex.get("primary_muscle") or (cat_ex.primary_muscle.value if cat_ex else "other")
+            try:
+                num_sets = int(ex.get("sets", 3))
+            except (ValueError, TypeError):
+                num_sets = 3
+            weekly_sets[muscle] = weekly_sets.get(muscle, 0) + num_sets
+
+    # Define evidence-based hypertrophy volume targets (10-20 sets)
+    thresholds = {
+        "chest": 10,
+        "back": 10,
+        "quads": 10,
+        "hamstrings": 8,
+        "delts": 10,
+        "arms": 8,
+        "core": 6,
+    }
+
+    if req.experience_level == "beginner":
+        thresholds = {k: max(6, v - 3) for k, v in thresholds.items()}
+    elif req.goal == "strength":
+        thresholds = {"chest": 8, "back": 8, "quads": 8, "hamstrings": 6, "delts": 8, "arms": 6, "core": 6}
+
+    # Find deficits
+    deficits: List[tuple[str, int, int, int]] = []
+    for muscle, target in thresholds.items():
+        current = weekly_sets.get(muscle, 0)
+        if current < target:
+            deficits.append((muscle, target - current, current, target))
+
+    # Sort largest deficit first
+    deficits.sort(key=lambda x: x[1], reverse=True)
+
+    # Check if balanced
+    if not deficits:
+        return AISuggestExerciseResponse(
+            is_all_good=True,
+            message="It's all good! Your routine is well-balanced across all major muscle groups and meets the 10–20 weekly set hypertrophy target. No additional exercise is needed.",
+            suggested_exercise=None,
+            volume_analysis={
+                "weekly_sets": weekly_sets,
+                "status": "optimal",
+                "summary": "All muscle groups hit their target weekly volume.",
+            },
+        )
+
+    # Pick candidate from catalog
+    chosen_ex: Optional[Exercise] = None
+    target_muscle = deficits[0][0]
+    current_sets = deficits[0][2]
+    target_sets = deficits[0][3]
+
+    for m_def, _, cur, tgt in deficits:
+        candidates = [
+            ex for ex in catalog.values()
+            if (ex.primary_muscle.value == m_def or m_def in [m.value for m in ex.secondary_muscles])
+            and ex.id not in existing_exercise_ids
+        ]
+        if candidates:
+            # Prefer compound exercises matching the primary muscle
+            candidates.sort(key=lambda x: (x.primary_muscle.value == m_def, x.is_compound), reverse=True)
+            chosen_ex = candidates[0]
+            target_muscle = m_def
+            current_sets = cur
+            target_sets = tgt
+            break
+
+    if not chosen_ex:
+        return AISuggestExerciseResponse(
+            is_all_good=True,
+            message="It's all good! Your routine covers all primary movement patterns available in the catalog. No further exercises needed.",
+            suggested_exercise=None,
+            volume_analysis={"weekly_sets": weekly_sets, "status": "sufficient"},
+        )
+
+    # Determine optimal day to add
+    keywords_map = {
+        "chest": ["push", "chest", "upper"],
+        "delts": ["push", "shoulder", "delt", "upper"],
+        "arms": ["push", "pull", "arm", "upper"],
+        "back": ["pull", "back", "upper"],
+        "quads": ["leg", "lower", "quad"],
+        "hamstrings": ["leg", "lower", "posterior", "hamstring"],
+        "core": ["core", "abs", "full", "lower"],
+    }
+    keywords = keywords_map.get(target_muscle, [])
+    target_day_index = 0
+    target_day_name = days[0].get("name", "Day 1")
+    matched = False
+
+    for idx, d in enumerate(days):
+        d_text = f"{d.get('name', '')} {d.get('focus', '')}".lower()
+        if any(kw in d_text for kw in keywords):
+            target_day_index = idx
+            target_day_name = d.get("name", f"Day {idx + 1}")
+            matched = True
+            break
+
+    if not matched:
+        fewest_idx = min(range(len(days)), key=lambda i: len(days[i].get("exercises", [])))
+        target_day_index = fewest_idx
+        target_day_name = days[fewest_idx].get("name", f"Day {fewest_idx + 1}")
+
+    rep_range = "8-12" if req.goal == "hypertrophy" else "6-8"
+    default_reason = (
+        f"{target_muscle.capitalize()} currently has only {current_sets} weekly sets (target is {target_sets}–20 sets). "
+        f"Adding {chosen_ex.name} to {target_day_name} delivers 3 high-stimulus sets to bridge your volume gap without overloading recovery."
+    )
+
+    reason = default_reason
+    try:
+        llm = get_llm_client()
+        sys_prompt = "You are an elite evidence-based fitness coach. Provide a concise 1-2 sentence rationale for adding an exercise to a routine."
+        user_msg = (
+            f"The user's routine currently has only {current_sets} weekly sets for {target_muscle} (target is {target_sets}-20 sets). "
+            f"Why is adding {chosen_ex.name} (3 sets of {rep_range}) to {target_day_name} the ideal addition for their {req.goal} goal?"
+        )
+        ai_resp = llm.complete(messages=[{"role": "user", "content": user_msg}], system=sys_prompt)
+        if ai_resp and len(ai_resp.strip()) > 10:
+            reason = ai_resp.strip()
+    except Exception:
+        pass
+
+    return AISuggestExerciseResponse(
+        is_all_good=False,
+        message=f"We found an opportunity to balance your {target_muscle} volume.",
+        suggested_exercise=ExerciseSuggestionItem(
+            exercise_id=chosen_ex.id,
+            name=chosen_ex.name,
+            primary_muscle=chosen_ex.primary_muscle.value,
+            equipment=chosen_ex.equipment.value,
+            day_index=target_day_index,
+            day_name=target_day_name,
+            sets=3,
+            rep_range=rep_range,
+            reason=reason,
+        ),
+        volume_analysis={
+            "weekly_sets": weekly_sets,
+            "target_muscle": target_muscle,
+            "current_sets": current_sets,
+            "target_sets": target_sets,
+        },
     )
