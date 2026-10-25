@@ -481,7 +481,7 @@ export function TrackerView() {
                   variant={
                     diagnosisData.diagnosis?.root_cause === 'fatigue_pattern' ? 'danger' :
                       diagnosisData.diagnosis?.root_cause === 'possible_under_recovery' ? 'warning' :
-                        diagnosisData.diagnosis?.root_cause === 'insufficient_stimulus' ? 'info' : 'neutral'
+                        diagnosisData.diagnosis?.root_cause === 'insufficient_stimulus' ? 'accent' : 'neutral'
                   }
                   size="sm"
                 >

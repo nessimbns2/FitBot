@@ -5,6 +5,9 @@ Phase 1 tests: profile defaults, validation, partial update, sessions.
 
 from __future__ import annotations
 
+from fastapi.testclient import TestClient
+from sqlmodel import Session
+
 
 # ── Profile ───────────────────────────────────────────────────────────────────
 

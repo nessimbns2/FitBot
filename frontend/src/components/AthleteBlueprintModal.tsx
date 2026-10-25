@@ -13,11 +13,8 @@ import {
   Award,
   CheckCircle2,
   AlertTriangle,
-  TrendingUp,
   Target,
   Dumbbell,
-  Zap,
-  Activity,
   RotateCcw,
   MessageSquare,
   BookOpen,
@@ -111,7 +108,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
       onClose={onClose}
       title="Your Personalized Fitness Blueprint"
       description="A simple, clear breakdown of your body strengths, how many sets to train each week, and what results to expect."
-      size="lg"
+      maxWidth="lg"
     >
       <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
         {/* Loading State */}
@@ -149,7 +146,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
             <h4 className="text-sm font-bold text-[var(--text-primary)]">Could Not Load Blueprint</h4>
             <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto">{error}</p>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={fetchBlueprint}
               leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
@@ -379,7 +376,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
 
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={handleDiscussInChat}
               disabled={isLoading || !blueprint}

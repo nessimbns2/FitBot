@@ -263,7 +263,7 @@ export function SomatotypeQuizModal({
       onClose={onClose}
       title="AI Somatotype Diagnostic Assessment"
       description="Answer 5 anthropometric questions to determine your metabolic profile and optimal training/nutrition split."
-      size="md"
+      maxWidth="md"
     >
       <div className="space-y-5">
         {/* If result is ready */}
@@ -335,7 +335,7 @@ export function SomatotypeQuizModal({
                 variant="ghost"
                 size="sm"
                 onClick={handleReset}
-                icon={<RotateCcw className="w-3.5 h-3.5" />}
+                leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
               >
                 Retake Quiz
               </Button>
@@ -346,7 +346,7 @@ export function SomatotypeQuizModal({
                   onApplySomatotype(result.predicted_somatotype);
                   onClose();
                 }}
-                icon={<CheckCircle2 className="w-4 h-4" />}
+                leftIcon={<CheckCircle2 className="w-4 h-4" />}
               >
                 Apply {result.predicted_somatotype.toUpperCase()} to Profile
               </Button>
@@ -433,7 +433,7 @@ export function SomatotypeQuizModal({
                 size="sm"
                 onClick={handlePrev}
                 disabled={currentStep === 0 || isAnalyzing}
-                icon={<ChevronLeft className="w-3.5 h-3.5" />}
+                leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
               >
                 Back
               </Button>
@@ -444,7 +444,7 @@ export function SomatotypeQuizModal({
                   size="sm"
                   onClick={handleNext}
                   disabled={!isCurrentAnswered || isAnalyzing}
-                  icon={<ChevronRight className="w-3.5 h-3.5" />}
+                  leftIcon={<ChevronRight className="w-3.5 h-3.5" />}
                 >
                   Next
                 </Button>
@@ -454,8 +454,8 @@ export function SomatotypeQuizModal({
                   size="sm"
                   onClick={handleSubmit}
                   disabled={!allAnswered || isAnalyzing}
-                  loading={isAnalyzing}
-                  icon={<Sparkles className="w-3.5 h-3.5" />}
+                  isLoading={isAnalyzing}
+                  leftIcon={<Sparkles className="w-3.5 h-3.5" />}
                 >
                   {isAnalyzing ? 'Predicting Somatotype...' : 'Predict My Somatotype with AI'}
                 </Button>
