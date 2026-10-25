@@ -829,11 +829,10 @@ export function NutritionView() {
                     key={slot}
                     type="button"
                     onClick={() => setTargetMealSlot(slot)}
-                    className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                      targetMealSlot === slot
-                        ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-xs'
-                        : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:border-[var(--accent-primary)]/50'
-                    }`}
+                    className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${targetMealSlot === slot
+                      ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-xs'
+                      : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:border-[var(--accent-primary)]/50'
+                      }`}
                   >
                     {slot}
                   </button>
