@@ -489,19 +489,15 @@ export function WorkoutsView() {
     }
   };
 
-  const handleAskFormCue = async (e?: React.FormEvent) => {
+  const handleAskFormCue = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!activeExercise || !formCueQuestion.trim() || isLoadingCues) return;
+    if (!activeExercise) return;
+    const q = formCueQuestion.trim()
+      ? `${activeExercise.name}: ${formCueQuestion.trim()}`
+      : `What are the proper technique cues, active execution steps, and common mistakes to avoid for ${activeExercise.name}?`;
 
-    setIsLoadingCues(true);
-    try {
-      const res = await getFormCue(activeExercise.id, formCueQuestion);
-      setCueResult(res);
-    } catch (err: any) {
-      setToast({ type: 'error', message: err.message || 'Failed to get form cue answer' });
-    } finally {
-      setIsLoadingCues(false);
-    }
+    setActiveExercise(null);
+    navigate('/coach', { state: { initialPrompt: q } });
   };
 
   const handleStartInTracker = (day: RoutineDay) => {
@@ -1400,10 +1396,9 @@ export function WorkoutsView() {
                   variant="primary"
                   size="sm"
                   type="submit"
-                  isLoading={isLoadingCues}
                   leftIcon={<Send className="w-3.5 h-3.5" />}
                 >
-                  Ask Form Guide
+                  Ask in RAG Chat
                 </Button>
               </div>
             </form>

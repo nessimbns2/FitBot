@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import {
   listSessions,
@@ -115,13 +116,12 @@ export function ChatView() {
 
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const location = useLocation();
+  const initialPromptHandled = useRef<boolean>(false);
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    loadSessions();
-  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -269,6 +269,21 @@ export function ChatView() {
       abortControllerRef.current = null;
     }
   };
+
+  // Automatically execute incoming prompts from "Ask Coach" or "Ask Guides"
+  useEffect(() => {
+    const prompt = (location.state as any)?.initialPrompt;
+    if (prompt && !initialPromptHandled.current) {
+      initialPromptHandled.current = true;
+      window.history.replaceState({}, document.title);
+      setActiveSessionId(null);
+      setMessages([]);
+      handleSendMessage(prompt);
+      listSessions().then((data) => setSessions(data || []));
+    } else if (!initialPromptHandled.current) {
+      loadSessions();
+    }
+  }, [location.state]);
 
   const handleStopStreaming = () => {
     if (abortControllerRef.current) {

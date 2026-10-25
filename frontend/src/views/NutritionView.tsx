@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useProfile } from '../context/ProfileContext';
 import { calculateMacros, getMealPlan, askNutrition, scanMealPhoto } from '../api/client';
 import {
@@ -83,6 +84,7 @@ interface MealPlanResponse {
 }
 
 export function NutritionView() {
+  const navigate = useNavigate();
   const { profile } = useProfile();
 
   // Macro calculation state
@@ -247,21 +249,13 @@ export function NutritionView() {
     window.print();
   };
 
-  const handleAskSubmit = async (e?: React.FormEvent, customQuestion?: string) => {
+  const handleAskSubmit = (e?: React.FormEvent, customQuestion?: string) => {
     if (e) e.preventDefault();
-    const q = customQuestion || askQuestion;
-    if (!q.trim() || isAsking) return;
+    const q = (customQuestion || askQuestion).trim();
+    if (!q) return;
 
-    setIsAsking(true);
-    setAskAnswer(null);
-    try {
-      const res = await askNutrition(q);
-      setAskAnswer(res);
-    } catch (err: any) {
-      setToast({ type: 'error', message: err.message || 'Failed to get nutrition answer.' });
-    } finally {
-      setIsAsking(false);
-    }
+    setIsAskDrawerOpen(false);
+    navigate('/coach', { state: { initialPrompt: q } });
   };
 
   // ── AI Meal Scanner Handlers ────────────────────────────────────────────────
@@ -1059,8 +1053,8 @@ export function NutritionView() {
               <span className="text-[11px] text-[var(--text-muted)]">
                 Isolated to Nutrition category index
               </span>
-              <Button variant="primary" size="sm" type="submit" isLoading={isAsking} leftIcon={<Send className="w-3.5 h-3.5" />}>
-                Ask Guide
+              <Button variant="primary" size="sm" type="submit" leftIcon={<Send className="w-3.5 h-3.5" />}>
+                Ask in RAG Chat
               </Button>
             </div>
           </form>
