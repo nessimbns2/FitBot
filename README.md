@@ -143,6 +143,21 @@ Evaluates 20 real fitness and nutrition questions against the indexed PDF manual
 | `GET` | `/api/overload/volume/summary` | Weekly volume status per muscle group |
 | `POST` | `/api/chat` | Non-streaming RAG chat with action extraction |
 | `POST` | `/api/chat/stream` | Server-Sent Events (SSE) token streaming chat |
+| `POST` | `/api/overload/diagnosis` | AI Fatigue & Plateau diagnosis with evidence and RAG |
+| `POST` | `/api/overload/apply-deload` | Server-verified deload activation with bounded strategy |
+| `POST` | `/api/overload/cancel-deload` | Cancel an active deload record |
+
+---
+
+## 🧠 Fatigue & Plateau Diagnostician: Heuristics & Known Limits
+
+- **Minimum History Window**: Requires at least 3 qualifying sessions over a minimum span of 14 days (within a 28-day window) to compute OLS regression slopes; fewer sessions or large gaps classify as `insufficient_data`.
+- **Deterministic Root Cause Classification**: Mathematical heuristics classify plateaus into `fatigue_pattern` (rising RPE slope $\ge 0.5$/sess and rep dropoff $\ge 15\%$), `possible_under_recovery` (rising RPE without dropoff), `insufficient_stimulus` (falling RPE $\le -0.5$/sess), or `progressing`.
+- **Noisy Data & Gray-Zone Demotion**: When residual variance across sessions is erratic (`noise_ratio >= 0.12`) or RPE coverage is sparse ($<50\%$), the diagnosis is demoted to `undetermined_cause` with a `hold` strategy to prevent erroneous deloads.
+- **Gray-Zone Formulaic Design**: Gray-zone explanations are formulaic by design; Python decides, the LLM justifies and explains.
+- **Reference Document Notice**: `Deload_and_Fatigue_Management_in_Strength_Training.pdf` is an AI-drafted summary of common guidance, not a published source.
+- **Manual Deload Cutoff & Alternating Program Limit**: Load drops $\ge 15\%$ automatically detect manual deloads; however, volume-only deloads (same load, fewer sets) and daily undulating / heavy-light alternating splits are not automatically detected and require manual marking.
+- **Pure Math Ownership & Prose Validation**: Every target number (kg, sets, reps, RPE ceiling, resume load) is computed by Python; LLMs generate only hedged prose, strictly validated against digits/number words with automatic fallback to deterministic templates.
 
 ---
 

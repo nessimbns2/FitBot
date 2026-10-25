@@ -202,7 +202,7 @@ class LLMClient(ABC):
     """Abstract interface for LLM calls supporting completion and token streaming."""
 
     @abstractmethod
-    def complete(self, messages: List[Dict[str, str]], system: str) -> str:
+    def complete(self, messages: List[Dict[str, str]], system: str, temperature: float = 1.0) -> str:
         pass
 
     @abstractmethod
@@ -218,7 +218,7 @@ class FakeLLMClient(LLMClient):
     def __init__(self, response_text: str = "This is a verified coach response [1]."):
         self.response_text = response_text
 
-    def complete(self, messages: List[Dict[str, str]], system: str) -> str:
+    def complete(self, messages: List[Dict[str, str]], system: str, temperature: float = 1.0) -> str:
         return self.response_text
 
     async def stream(
@@ -256,7 +256,7 @@ class GeminiLLMClient(LLMClient):
             genai.configure(api_key=self.api_key)
         return genai.GenerativeModel(model_name=target_model)
 
-    def complete(self, messages: List[Dict[str, str]], system: str) -> str:
+    def complete(self, messages: List[Dict[str, str]], system: str, temperature: float = 1.0) -> str:
         prompt_parts = [f"SYSTEM: {system}\n\n"]
         for m in messages:
             role = "USER" if m.get("role") == "user" else "ASSISTANT"
@@ -264,12 +264,13 @@ class GeminiLLMClient(LLMClient):
         prompt_parts.append("ASSISTANT: ")
         full_prompt = "".join(prompt_parts)
 
+        generation_config = {"temperature": max(0.0, min(2.0, temperature))}
         models_to_try = [self.model_name] + [m for m in self.FALLBACK_MODELS if m != self.model_name]
 
         for model in models_to_try:
             try:
                 client = self._get_client(model)
-                response = client.generate_content(full_prompt)
+                response = client.generate_content(full_prompt, generation_config=generation_config)
                 if response and response.text:
                     return response.text
             except Exception:

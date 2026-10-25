@@ -463,6 +463,11 @@ export function ChatView() {
                                     <span className="truncate max-w-[280px]" title={src.source}>
                                       {src.source}
                                     </span>
+                                    {src.source && src.source.includes('Deload_and_Fatigue_Management') && (
+                                      <span className="text-[9px] text-[var(--accent-text)] italic bg-[var(--accent-subtle)] px-1.5 py-0.5 rounded">
+                                        AI-drafted summary of common guidance, not a published source
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0">
                                     {typeof src.score === 'number' && (
