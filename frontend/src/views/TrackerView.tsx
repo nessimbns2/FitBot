@@ -23,6 +23,7 @@ import {
 import {
   getCatalogExercises,
   getExerciseHistory,
+  getPlateauDiagnosis,
   getRecommendation,
   getWeeklyVolume,
   logWorkoutSet,
@@ -108,7 +109,7 @@ export function TrackerView() {
           return parsed.days[0].exercises.map((e: any) => e.exercise_id);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   }, [location.state]);
 
@@ -127,6 +128,7 @@ export function TrackerView() {
 
   // Recommendation & History State
   const [recommendation, setRecommendation] = useState<ProgressionRec | null>(null);
+  const [diagnosisData, setDiagnosisData] = useState<any>(null);
   const [history, setHistory] = useState<SessionHistoryItem[]>([]);
   const [volumeSummary, setVolumeSummary] = useState<any>(null);
 
@@ -143,7 +145,7 @@ export function TrackerView() {
     if (selectedExerciseId) {
       loadExerciseDetails(selectedExerciseId);
     }
-  }, [selectedExerciseId]);
+  }, [selectedExerciseId, unit]);
 
   const loadCatalog = async () => {
     try {
@@ -166,17 +168,48 @@ export function TrackerView() {
   const loadExerciseDetails = async (exId: string) => {
     setIsLoadingRec(true);
     try {
-      const [recData, histData] = await Promise.all([
+      const [recData, histData, diagData] = await Promise.all([
         getRecommendation(exId),
         getExerciseHistory(exId),
+        getPlateauDiagnosis(exId, { unit }).catch(() => null),
       ]);
       setRecommendation(recData);
       setHistory(histData || []);
+      setDiagnosisData(diagData);
     } catch (err) {
       console.error('Error loading overload data:', err);
     } finally {
       setIsLoadingRec(false);
     }
+  };
+
+  const handleApplyDeloadPrefill = () => {
+    const target = diagnosisData?.diagnosis?.deload_target;
+    if (!target || target.target_weight_kg == null) return;
+
+    const targetSetsCount = target.target_sets || 2;
+    const targetWeight = unit === 'lb'
+      ? Number((target.target_weight_kg * 2.20462).toFixed(1))
+      : target.target_weight_kg;
+
+    let targetReps = 8;
+    if (target.target_reps_range) {
+      const parts = target.target_reps_range.split('-');
+      if (parts.length > 0) {
+        targetReps = parseInt(parts[0].trim(), 10) || 8;
+      }
+    }
+    const targetRpe = target.target_rpe_ceiling || 7.0;
+
+    const prefilled = Array.from({ length: targetSetsCount }, (_, i) => ({
+      set_number: i + 1,
+      reps: targetReps,
+      weight: targetWeight,
+      rpe: targetRpe,
+      rir: Math.max(0, Math.round(10 - targetRpe)),
+    }));
+    setSessionSets(prefilled);
+    setToast({ type: 'success', message: 'Deload target prefilled into session sets (draft only).' });
   };
 
   const currentExercise = exercises.find((e) => e.id === selectedExerciseId);
@@ -356,11 +389,10 @@ export function TrackerView() {
                   key={exId}
                   type="button"
                   onClick={() => setSelectedExerciseId(exId)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer shrink-0 ${
-                    isSelected
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer shrink-0 ${isSelected
                       ? 'bg-[var(--accent-primary)] text-white shadow-xs'
                       : 'bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
-                  }`}
+                    }`}
                 >
                   {name}
                 </button>
@@ -434,6 +466,100 @@ export function TrackerView() {
                 {recommendation.reason}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Minimal Fatigue & Plateau Diagnosis Card */}
+        {diagnosisData && (diagnosisData.diagnosis?.plateau_detected || diagnosisData.active_deload) && (
+          <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-subtle)] space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--accent-text)] flex items-center gap-1.5">
+                  <Activity className="w-4 h-4" /> Fatigue & Plateau Diagnosis
+                </span>
+                <Badge
+                  variant={
+                    diagnosisData.diagnosis?.root_cause === 'fatigue_pattern' ? 'danger' :
+                      diagnosisData.diagnosis?.root_cause === 'possible_under_recovery' ? 'warning' :
+                        diagnosisData.diagnosis?.root_cause === 'insufficient_stimulus' ? 'info' : 'neutral'
+                  }
+                  size="sm"
+                >
+                  {diagnosisData.diagnosis?.root_cause?.replace(/_/g, ' ') || 'Evaluation'}
+                </Badge>
+                {diagnosisData.active_deload && (
+                  <Badge variant="success" size="sm">
+                    Active Deload ({diagnosisData.active_deload.sessions_completed || 0}/{diagnosisData.active_deload.duration_sessions} sessions)
+                  </Badge>
+                )}
+              </div>
+
+              {diagnosisData.diagnosis?.deload_target?.target_weight_kg != null && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={handleApplyDeloadPrefill}
+                >
+                  Apply Deload (Prefill)
+                </Button>
+              )}
+            </div>
+
+            {diagnosisData.explanation && (
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                {diagnosisData.explanation}
+              </p>
+            )}
+
+            {diagnosisData.diagnosis?.deload_target?.target_weight_kg != null && (
+              <div className="p-3.5 rounded-xl bg-[var(--bg-app)] border border-[var(--border-subtle)] text-xs flex flex-wrap items-center gap-x-6 gap-y-2">
+                <div>
+                  <span className="text-[var(--text-muted)] block">Prescribed Target</span>
+                  <span className="font-bold text-[var(--text-primary)]">
+                    {unit === 'lb'
+                      ? (diagnosisData.diagnosis.deload_target.target_weight_kg * 2.20462).toFixed(1)
+                      : diagnosisData.diagnosis.deload_target.target_weight_kg}{' '}
+                    {unit} × {diagnosisData.diagnosis.deload_target.target_sets} sets × {diagnosisData.diagnosis.deload_target.target_reps_range} @ RPE ≤ {diagnosisData.diagnosis.deload_target.target_rpe_ceiling}
+                  </span>
+                </div>
+                {diagnosisData.diagnosis.deload_target.resume_weight_kg != null && (
+                  <div>
+                    <span className="text-[var(--text-muted)] block">Resume Weight</span>
+                    <span className="font-bold text-[var(--accent-text)]">
+                      {unit === 'lb'
+                        ? (diagnosisData.diagnosis.deload_target.resume_weight_kg * 2.20462).toFixed(1)
+                        : diagnosisData.diagnosis.deload_target.resume_weight_kg}{' '}
+                      {unit}
+                    </span>
+                  </div>
+                )}
+                {diagnosisData.diagnosis.deload_target.duration_sessions && (
+                  <div>
+                    <span className="text-[var(--text-muted)] block">Duration</span>
+                    <span className="font-semibold text-[var(--text-secondary)]">
+                      {diagnosisData.diagnosis.deload_target.duration_sessions} session(s)
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {diagnosisData.sources && diagnosisData.sources.length > 0 && (
+              <div className="p-3 rounded-xl bg-[var(--bg-app)] border border-[var(--border-subtle)] text-[11px] text-[var(--text-muted)] space-y-1.5">
+                <span className="font-semibold text-[var(--text-secondary)] block">Retrieved Reference Sources:</span>
+                {diagnosisData.sources.map((src: any, sIdx: number) => (
+                  <div key={sIdx} className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-[var(--accent-text)] font-bold">[{sIdx + 1}]</span>
+                    <span className="font-medium text-[var(--text-primary)]">{src.source}</span>
+                    {src.source.includes('Deload_and_Fatigue_Management') && (
+                      <span className="text-[10px] text-[var(--accent-text)] italic bg-[var(--accent-subtle)] px-2 py-0.5 rounded">
+                        AI-drafted summary of common guidance, not a published source
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -551,11 +677,10 @@ export function TrackerView() {
                               key={rpeVal}
                               type="button"
                               onClick={() => handleUpdateSet(idx, 'rpe', rpeVal)}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-sans tabular-nums font-bold transition-all cursor-pointer ${
-                                s.rpe === rpeVal
+                              className={`px-2.5 py-1 rounded-lg text-xs font-sans tabular-nums font-bold transition-all cursor-pointer ${s.rpe === rpeVal
                                   ? 'bg-[var(--accent-primary)] text-white shadow-xs'
                                   : 'bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                              }`}
+                                }`}
                             >
                               {rpeVal}
                             </button>
@@ -734,13 +859,12 @@ export function TrackerView() {
                           <div className="w-full bg-[var(--bg-subtle)] h-2 rounded-full overflow-hidden">
                             <div
                               style={{ width: `${pct}%` }}
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                status === 'in_range'
+                              className={`h-full rounded-full transition-all duration-300 ${status === 'in_range'
                                   ? 'bg-emerald-500'
                                   : status === 'above'
-                                  ? 'bg-amber-500'
-                                  : 'bg-[var(--accent-primary)]'
-                              }`}
+                                    ? 'bg-amber-500'
+                                    : 'bg-[var(--accent-primary)]'
+                                }`}
                             />
                           </div>
                         </div>
@@ -804,5 +928,82 @@ export function TrackerView() {
         )}
       </div>
     </div>
+  );
+}
+<div
+  style={{ width: `${pct}%` }}
+  className={`h-full rounded-full transition-all duration-300 ${status === 'in_range'
+      ? 'bg-emerald-500'
+      : status === 'above'
+        ? 'bg-amber-500'
+        : 'bg-[var(--accent-primary)]'
+    }`}
+/>
+                          </div >
+                        </div >
+                      );
+                    })}
+                  </div >
+                ) : (
+  <div className="p-6 text-center text-xs text-[var(--text-muted)]">
+    No committed volume found for the active week.
+  </div>
+)}
+              </Card >
+            )}
+          </div >
+        </div >
+
+  {/* Sticky Finish Session Bar (Never overlaps mobile bottom tab bar) */ }
+{
+  sessionSets.length > 0 && (
+    <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[var(--bg-card)] border border-[var(--border-prominent)] rounded-2xl p-4 shadow-[var(--shadow-xl)] flex flex-wrap items-center justify-between gap-4 max-w-2xl w-[90%] animate-in slide-in-from-bottom-4 duration-200">
+      <div className="flex items-center gap-4 text-xs font-semibold">
+        <div>
+          <span className="text-[var(--text-muted)] block text-[10px] uppercase">Sets</span>
+          <span className="font-sans tabular-nums text-sm font-bold text-[var(--text-primary)]">
+            {sessionStats.totalSets}
+          </span>
+        </div>
+        <div className="h-6 w-px bg-[var(--border-subtle)]" />
+        <div>
+          <span className="text-[var(--text-muted)] block text-[10px] uppercase">Reps</span>
+          <span className="font-sans tabular-nums text-sm font-bold text-[var(--text-primary)]">
+            {sessionStats.totalReps}
+          </span>
+        </div>
+        <div className="h-6 w-px bg-[var(--border-subtle)]" />
+        <div>
+          <span className="text-[var(--text-muted)] block text-[10px] uppercase">Volume</span>
+          <span className="font-sans tabular-nums text-sm font-bold text-[var(--accent-text)]">
+            {sessionStats.totalTonnage.toLocaleString()} {unit}
+          </span>
+        </div>
+      </div>
+
+      <Button
+        variant="primary"
+        size="md"
+        onClick={handleCommitSession}
+        isLoading={isLogging}
+        leftIcon={<CheckCircle2 className="w-4 h-4" />}
+      >
+        Commit Workout Session
+      </Button>
+    </div>
+  )
+}
+
+{
+  toast && (
+    <Toast
+      type={toast.type}
+      message={toast.message}
+      onClose={() => setToast(null)}
+    />
+  )
+}
+      </div >
+    </div >
   );
 }

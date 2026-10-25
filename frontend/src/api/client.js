@@ -174,6 +174,27 @@ export async function getWeeklyVolume(weekStart = null) {
   return request(url);
 }
 
+export async function getPlateauDiagnosis(exerciseId, options = {}) {
+  return request('/api/overload/diagnosis', {
+    method: 'POST',
+    body: JSON.stringify({ exercise_id: exerciseId, ...options }),
+  });
+}
+
+export async function applyDeload(exerciseId, options = {}) {
+  return request('/api/overload/apply-deload', {
+    method: 'POST',
+    body: JSON.stringify({ exercise_id: exerciseId, ...options }),
+  });
+}
+
+export async function cancelDeload(deloadRecordId, reason = null) {
+  return request('/api/overload/cancel-deload', {
+    method: 'POST',
+    body: JSON.stringify({ deload_record_id: deloadRecordId, reason }),
+  });
+}
+
 // ── Chat & Streaming ──────────────────────────────────────────────────────────
 
 export async function sendChatMessage(message, sessionId = null) {
