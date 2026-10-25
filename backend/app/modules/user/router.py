@@ -79,7 +79,7 @@ def predict_somatotype(req: models.SomatotypeQuizRequest, session: SessionDep):
 @router.post("/blueprint", response_model=models.AthleteBlueprintResponse)
 def get_athlete_blueprint(
     session: SessionDep,
-    req: models.AthleteBlueprintRequest = None,
+    req: models.AthleteBlueprintRequest | None = None,
 ):
     """Generate a scientific Athlete AI Blueprint and physiological profile audit."""
     return service.generate_athlete_blueprint(session, req)
