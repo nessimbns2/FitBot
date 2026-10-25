@@ -622,39 +622,39 @@ export function ProfileView() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--accent-text)]">
                     <Sparkles className="w-4 h-4 text-[var(--accent-primary)]" />
-                    AI Athlete Blueprint
+                    Your Fitness Blueprint
                   </div>
                   <Badge variant="accent" size="sm">
-                    Sports Science Audit
+                    Personalized Plan
                   </Badge>
                 </div>
 
                 <div className="space-y-1">
                   <h4 className="text-sm font-black text-[var(--text-primary)] flex items-center gap-2">
                     <Award className="w-4 h-4 text-[var(--accent-primary)]" />
-                    Physiological Profile Audit
+                    Your Personalized Fitness Plan
                   </h4>
                   <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                    Synthesize your biometrics, somatotype, volume capacity (MEV/MRV), and 24-week periodization milestones.
+                    See your body's strengths, how many sets to do each week, and realistic results to expect over 3 and 6 months.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] font-semibold text-[var(--text-muted)]">
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Volume Landmarks</span>
+                    <span>Workout Sets</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Genetic Levers</span>
+                    <span>Body Strengths</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Risk Safeguards</span>
+                    <span>What to Watch</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Milestones</span>
+                    <span>Expected Results</span>
                   </div>
                 </div>
 
@@ -666,7 +666,7 @@ export function ProfileView() {
                   leftIcon={<Sparkles className="w-4 h-4" />}
                   className="w-full mt-2"
                 >
-                  Generate Athlete Blueprint
+                  View Your Fitness Blueprint
                 </Button>
               </div>
             </Card>

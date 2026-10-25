@@ -100,7 +100,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
 
   const handleDiscussInChat = () => {
     if (!blueprint) return;
-    const prompt = `FitBot, I just reviewed my AI Athlete Blueprint (${blueprint.athlete_archetype}). Can you give me specific tips on how to apply my volume landmarks (${blueprint.volume_landmarks?.mev_sets_per_week} to ${blueprint.volume_landmarks?.mrv_sets_per_week}) into my weekly training split?`;
+    const prompt = `FitBot, I just reviewed my Fitness Blueprint (${blueprint.athlete_archetype}). Can you give me tips on how to fit my weekly sets (${blueprint.volume_landmarks?.mev_sets_per_week} to ${blueprint.volume_landmarks?.mrv_sets_per_week}) into my workout schedule?`;
     onClose();
     navigate('/coach', { state: { initialPrompt: prompt } });
   };
@@ -109,8 +109,8 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="AI Athlete Blueprint & Profile Audit"
-      description="Evidence-based physiological assessment synthesizing biometrics, somatotype, and volume landmarks."
+      title="Your Personalized Fitness Blueprint"
+      description="A simple, clear breakdown of your body strengths, how many sets to train each week, and what results to expect."
       size="lg"
     >
       <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
@@ -124,10 +124,10 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
                 </div>
               </div>
               <h4 className="text-sm font-bold text-[var(--text-primary)]">
-                Synthesizing Biometrics & Scientific Literature...
+                Building Your Personalized Plan...
               </h4>
               <p className="text-xs text-[var(--text-muted)] max-w-sm">
-                Evaluating metabolic rate, volume capacity, and hypertrophy thresholds from verified sports science manuals.
+                Looking at your body type, goals, and experience to calculate your ideal weekly sets and realistic timeline.
               </p>
             </div>
 
@@ -146,7 +146,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
         {!isLoading && error && (
           <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center space-y-3 py-6">
             <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto" />
-            <h4 className="text-sm font-bold text-[var(--text-primary)]">Audit Generation Issue</h4>
+            <h4 className="text-sm font-bold text-[var(--text-primary)]">Could Not Load Blueprint</h4>
             <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto">{error}</p>
             <Button
               variant="outline"
@@ -154,7 +154,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
               onClick={fetchBlueprint}
               leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
             >
-              Retry Analysis
+              Try Again
             </Button>
           </div>
         )}
@@ -168,10 +168,10 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-black tracking-widest uppercase text-[var(--accent-text)] bg-[var(--bg-app)]/80 px-2 py-0.5 rounded-md border border-[var(--border-subtle)]">
-                      Athlete Archetype
+                      Your Plan
                     </span>
                     <Badge variant="accent" size="sm">
-                      Evidence Grounded
+                      Personalized
                     </Badge>
                   </div>
                   <h3 className="text-xl sm:text-2xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-2 mt-1">
@@ -185,15 +185,15 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
                     {blueprint.calculated_metrics?.somatotype?.toUpperCase() || 'MESOMORPH'}
                   </Badge>
                   <Badge variant="neutral" size="sm">
-                    {blueprint.calculated_metrics?.goal?.replace('_', ' ').toUpperCase() || 'HYPERTROPHY'}
+                    {blueprint.calculated_metrics?.goal?.replace('_', ' ').toUpperCase() || 'BUILD MUSCLE'}
                   </Badge>
                   <Badge variant="neutral" size="sm">
-                    {blueprint.calculated_metrics?.target_kcal || 2500} KCAL
+                    {blueprint.calculated_metrics?.target_kcal || 2500} CALORIES / DAY
                   </Badge>
                 </div>
               </div>
 
-              {/* Executive Summary */}
+              {/* Summary */}
               <div className="mt-4 pt-3.5 border-t border-[var(--border-subtle)]/70">
                 <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
                   {blueprint.executive_summary}
@@ -201,13 +201,13 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
               </div>
             </div>
 
-            {/* 2-Column: Strengths & Blindspots */}
+            {/* 2-Column: Strengths & Things to Watch Out For */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Strengths */}
               <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
                 <h4 className="text-xs font-bold text-emerald-500 uppercase tracking-wider flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  Physiological Strengths & Levers
+                  Your Biggest Strengths
                 </h4>
                 <ul className="space-y-2">
                   {blueprint.physiological_strengths?.map((str, idx) => (
@@ -219,11 +219,11 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
                 </ul>
               </div>
 
-              {/* Blindspots & Risks */}
+              {/* Things to Watch Out For */}
               <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3">
                 <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
                   <ShieldAlert className="w-4 h-4 text-amber-500" />
-                  Potential Blindspots & Safeguards
+                  Things to Watch Out For
                 </h4>
                 <ul className="space-y-2">
                   {blueprint.blindspots_and_risks?.map((risk, idx) => (
@@ -236,23 +236,23 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
               </div>
             </div>
 
-            {/* Hypertrophy Volume Landmarks */}
+            {/* Weekly Workout Sweet Spot */}
             {blueprint.volume_landmarks && (
               <div className="p-4 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                     <Dumbbell className="w-4 h-4 text-[var(--accent-primary)]" />
-                    Hypertrophy Volume Landmarks & Capacity
+                    Weekly Workout Sweet Spot
                   </h4>
                   <Badge variant="accent" size="sm">
-                    {blueprint.volume_landmarks.recovery_capacity} Recovery
+                    {blueprint.volume_landmarks.recovery_capacity}
                   </Badge>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
                   <div className="p-3 rounded-lg bg-[var(--bg-card)] border border-[var(--border-subtle)] text-center">
                     <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase block">
-                      Min Effective Vol (MEV)
+                      Minimum to Grow
                     </span>
                     <span className="text-xs sm:text-sm font-black text-[var(--text-primary)] mt-0.5 block">
                       {blueprint.volume_landmarks.mev_sets_per_week}
@@ -261,7 +261,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
 
                   <div className="p-3 rounded-lg bg-[var(--bg-card)] border border-[var(--border-subtle)] text-center">
                     <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase block">
-                      Max Recoverable (MRV)
+                      Max Before Burnout
                     </span>
                     <span className="text-xs sm:text-sm font-black text-amber-500 mt-0.5 block">
                       {blueprint.volume_landmarks.mrv_sets_per_week}
@@ -270,7 +270,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
 
                   <div className="p-3 rounded-lg bg-[var(--bg-card)] border border-[var(--border-subtle)] text-center">
                     <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase block">
-                      Frequency
+                      How Often to Train
                     </span>
                     <span className="text-xs sm:text-sm font-black text-[var(--text-primary)] mt-0.5 block">
                       {blueprint.volume_landmarks.recommended_frequency}
@@ -279,7 +279,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
 
                   <div className="p-3 rounded-lg bg-[var(--bg-card)] border border-[var(--border-subtle)] text-center">
                     <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase block">
-                      Fat-Free Mass / LBM
+                      Muscle & Lean Weight
                     </span>
                     <span className="text-xs sm:text-sm font-black text-emerald-500 mt-0.5 block">
                       {blueprint.calculated_metrics?.lean_mass_kg ? `${blueprint.calculated_metrics.lean_mass_kg} kg` : 'Calculated'}
@@ -289,16 +289,16 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
               </div>
             )}
 
-            {/* Timeline Milestones & Periodization */}
+            {/* Realistic Progression Milestones */}
             {blueprint.timeline_projection && (
               <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                     <Calendar className="w-4 h-4 text-[var(--accent-primary)]" />
-                    Realistic Progression Milestones
+                    What Results to Expect
                   </h4>
-                  <span className="text-[11px] font-mono text-[var(--accent-text)] font-semibold">
-                    Rate: {blueprint.timeline_projection.rate_of_change}
+                  <span className="text-[11px] font-medium text-[var(--accent-text)]">
+                    Expected Pace: {blueprint.timeline_projection.rate_of_change}
                   </span>
                 </div>
 
@@ -307,7 +307,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[var(--accent-primary)]" />
                       <span className="text-[11px] font-bold text-[var(--text-primary)] uppercase tracking-wide">
-                        12-Week Milestone
+                        In 3 Months (12 Weeks)
                       </span>
                     </div>
                     <p className="text-xs text-[var(--text-secondary)] leading-relaxed pl-4">
@@ -319,7 +319,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
                       <span className="text-[11px] font-bold text-[var(--text-primary)] uppercase tracking-wide">
-                        24-Week Transformation
+                        In 6 Months (24 Weeks)
                       </span>
                     </div>
                     <p className="text-xs text-[var(--text-secondary)] leading-relaxed pl-4">
@@ -330,12 +330,12 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
               </div>
             )}
 
-            {/* Key Coaching Directives */}
+            {/* 3 Simple Next Steps */}
             {blueprint.key_coaching_directives?.length > 0 && (
               <div className="p-4 rounded-xl bg-gradient-to-r from-[var(--bg-subtle)] to-[var(--bg-card)] border border-[var(--border-subtle)] space-y-2.5">
                 <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                   <Target className="w-4 h-4 text-[var(--accent-primary)]" />
-                  Key Coaching Directives
+                  Your 3 Simple Next Steps
                 </h4>
                 <div className="space-y-2">
                   {blueprint.key_coaching_directives.map((directive, idx) => (
@@ -355,10 +355,10 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
               <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] flex items-center justify-between text-xs text-[var(--text-muted)]">
                 <div className="flex items-center gap-1.5">
                   <BookOpen className="w-3.5 h-3.5" />
-                  <span>Grounding: {blueprint.sources.map((s) => `${s.source} (p. ${s.page})`).join(', ')}</span>
+                  <span>Backed by: {blueprint.sources.map((s) => `${s.source} (p. ${s.page})`).join(', ')}</span>
                 </div>
                 <Badge variant="neutral" size="sm">
-                  Verified RAG
+                  Evidence-Based
                 </Badge>
               </div>
             )}
@@ -374,7 +374,7 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
             disabled={isLoading}
             leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
           >
-            Re-run Audit
+            Refresh Plan
           </Button>
 
           <div className="flex items-center gap-2">
@@ -385,10 +385,10 @@ export const AthleteBlueprintModal: React.FC<AthleteBlueprintModalProps> = ({
               disabled={isLoading || !blueprint}
               leftIcon={<MessageSquare className="w-3.5 h-3.5" />}
             >
-              Discuss with Coach
+              Ask Coach in Chat
             </Button>
             <Button variant="primary" size="sm" onClick={onClose}>
-              Done
+              Got It
             </Button>
           </div>
         </div>

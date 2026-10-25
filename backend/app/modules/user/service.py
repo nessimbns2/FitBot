@@ -356,70 +356,71 @@ def generate_athlete_blueprint(
         context=context_str,
     )
 
-    # Deterministic evidence-based defaults
+    # Deterministic evidence-based defaults (in simple, everyday language)
     archetype_map = {
-        "ectomorph": "Ectomorphic High-Metabolism Hypertrophy Protocol",
-        "mesomorph": "Athletic Mesomorphic Progressive Overload Blueprint",
-        "endomorph": "Endomorphic Metabolic Conditioning & Lean Mass Protocol",
-        "unknown": "Evidence-Based Periodization Athlete Blueprint",
+        "ectomorph": "Lean Builder — High-Energy Mass Plan",
+        "mesomorph": "Athletic Builder — Steady Muscle Growth Plan",
+        "endomorph": "Power Builder — Strength & Fat Burn Plan",
+        "unknown": "Personalized Fitness Blueprint",
     }
-    default_archetype = archetype_map.get(somatotype, "Evidence-Based Athlete Blueprint")
+    default_archetype = archetype_map.get(somatotype, "Personalized Fitness Blueprint")
 
     default_strengths = [
-        f"Calibrated daily energy baseline at {round(macro_res.target_kcal)} kcal with optimal {round(macro_res.protein_g)}g protein for muscle protein synthesis.",
-        f"Solid training foundation with {experience_level.capitalize()} experience level geared toward {goal.replace('_', ' ')}.",
-        f"Physiological Somatotype alignment ({somatotype.capitalize()}) optimizing fuel partitioning and recovery.",
+        f"Daily nutrition target of {round(macro_res.target_kcal)} calories with {round(macro_res.protein_g)}g protein to help your muscles rebuild quickly.",
+        f"Clear plan for {goal.replace('_', ' ')} tailored to your {experience_level} training level.",
+        f"{somatotype.capitalize()} body type naturally turns your food into great workout fuel and steady recovery.",
     ]
 
     default_risks = [
-        "Jumping volume too quickly above recovery limits (risk of excessive joint and CNS fatigue).",
-        "Inadequate sleep (<7 hrs) impairing hormonal recovery and muscle repair.",
+        "Doing too many sets too fast can tire out your joints and slow down your progress.",
+        "Getting less than 7 hours of sleep will slow down your muscle repair and workout energy.",
     ]
 
     mev = (
-        "8-10 sets/muscle/week"
+        "8–10 sets (Minimum to grow)"
         if experience_level == "beginner"
-        else ("10-12 sets/muscle/week" if experience_level == "intermediate" else "12-16 sets/muscle/week")
+        else ("10–12 sets (Minimum to grow)" if experience_level == "intermediate" else "12–14 sets (Minimum to grow)")
     )
     mrv = (
-        "14-16 sets/muscle/week"
+        "14–16 sets (Max before tiring out)"
         if experience_level == "beginner"
-        else ("18-20 sets/muscle/week" if experience_level == "intermediate" else "22-26 sets/muscle/week")
+        else ("18–20 sets (Max before tiring out)" if experience_level == "intermediate" else "22–24 sets (Max before tiring out)")
     )
     recovery_cap = (
-        "High"
+        "Fast recovery"
         if somatotype == "mesomorph" and age < 35
-        else ("Moderate" if somatotype == "endomorph" or age < 45 else "Sensitive")
+        else ("Normal recovery" if somatotype == "endomorph" or age < 45 else "Needs extra rest")
     )
 
     volume_landmarks = VolumeLandmarks(
         mev_sets_per_week=mev,
         mrv_sets_per_week=mrv,
-        recommended_frequency="2x - 3x per muscle group weekly",
+        recommended_frequency="2 to 3 times a week per muscle",
         recovery_capacity=recovery_cap,
     )
 
     rate_str = (
-        "+0.3 kg to +0.5 kg lean mass / month"
+        "+0.3 to +0.5 kg muscle per month"
         if goal == "hypertrophy"
-        else ("-0.5 kg to -0.8 kg fat loss / week" if goal == "fat_loss" else "Progressive 1RM force output gains")
+        else ("-0.5 to -0.8 kg fat loss per week" if goal == "fat_loss" else "Steady increases in strength and lifting power")
     )
     timeline_proj = TimelineProjection(
         rate_of_change=rate_str,
-        milestone_12_weeks="Noticeable mechanical tension adaptations with measurable increases in multi-joint compound lift loads.",
-        milestone_24_weeks="Significant body recomposition with peak neurological motor unit recruitment and consolidated lean mass.",
+        milestone_12_weeks="You will notice clear strength increases, lift heavier weights with good form, and feel much more solid.",
+        milestone_24_weeks="Visible muscle tone and body transformation, with higher stamina and consistent lifting progress.",
     )
 
     directives = [
-        f"Lock in {round(macro_res.protein_g)}g daily protein divided across 3-5 feedings.",
-        "Track progressive overload using double progression (hit top of rep range before increasing load).",
-        "Implement a planned deload every 6-8 weeks when volume approaches MRV.",
+        f"Eat around {round(macro_res.protein_g)}g of protein every day spread out across your meals.",
+        "Add a little more weight or an extra repetition each week when an exercise feels easier.",
+        "Take a lighter training week (deload) every 6 to 8 weeks to let your body fully recharge.",
     ]
 
     summary = (
-        f"Athlete profile calibrated for {goal.replace('_', ' ')} with a daily fuel target of {round(macro_res.target_kcal)} kcal. "
-        f"With an experience level of {experience_level.capitalize()} and a {somatotype.capitalize()} archetype, "
-        "the optimal stimulus path prioritizes progressive tension overload within the 10-20 weekly set window."
+        f"You have a great foundation to reach your {goal.replace('_', ' ')} goal! "
+        f"Eating around {round(macro_res.target_kcal)} calories a day gives you the right energy. "
+        f"For your {somatotype.capitalize()} body type and {experience_level} level, "
+        "doing 10–20 good sets per muscle group each week will give you the best, most consistent results."
     )
 
     # LLM Enhancement
