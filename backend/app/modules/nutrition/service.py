@@ -79,10 +79,10 @@ def calculate_macros(request: MacroRequest, session: Session) -> MacroResult:
     activity_level = _resolve(request.activity_level, profile.activity_level.value)
     goal = _resolve(request.goal, profile.goal.value)
     somatotype = _resolve(request.somatotype, profile.somatotype.value)
-    unit_system = _resolve(request.unit_system, profile.unit_system.value)
 
-    # Convert weight if imperial
-    if unit_system == "imperial" or request.weight_unit == "lb":
+    # The stored profile weight is always in kg (the Profile page converts before
+    # saving), so only a weight sent in the request itself can be in pounds.
+    if request.weight_kg is not None and request.weight_unit == "lb":
         weight_kg = _lbs_to_kg(weight_kg)
 
     return calc.calculate(

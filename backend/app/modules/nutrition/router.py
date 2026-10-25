@@ -34,6 +34,11 @@ router = APIRouter(
     tags=["nutrition"],
 )
 
+# Food log CRUD (POST/GET/PUT/DELETE /api/nutrition/log)
+from app.modules.nutrition.log_router import router as food_log_router  # noqa: E402
+
+router.include_router(food_log_router)
+
 
 # ── Request / Response Bodies ─────────────────────────────────────────────────
 
@@ -332,73 +337,64 @@ def scan_meal(
 
     prompt = MEAL_SCAN_VISION_PROMPT.format(meal_slot_context=meal_slot_context)
 
-    # 3. Call Gemini Vision
-    try:
-        import google.generativeai as genai
-        from app.core.config import settings
+    # 3. Check that the AI is configured: never invent a result.
+    from app.core.config import settings
 
-        api_key = settings.LLM_API_KEY
-        if api_key:
-            genai.configure(api_key=api_key)
-
-        vision_model_name = getattr(settings, "LLM_MODEL", "gemini-3.5-flash-lite")
-        if vision_model_name in ("gemini-2.0-flash", "gemini-2.5-flash"):
-            vision_model_name = "gemini-3.5-flash-lite"
-        model = genai.GenerativeModel(vision_model_name)
-        contents = [
-            {"mime_type": mime_type, "data": image_bytes},
-            prompt,
-        ]
-
-        response = model.generate_content(contents)
-        response_text = response.text.strip()
-
-        # Extract JSON from potential code fences
-        match = re.search(r"\{.*\}", response_text, re.DOTALL)
-        if match:
-            json_str = match.group(0)
-            data = json.loads(json_str)
-            return MealScanResponse(**data)
-        else:
-            data = json.loads(response_text)
-            return MealScanResponse(**data)
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        # Fallback simulation if offline or vision model error occurs
-        return MealScanResponse(
-            meal_name="Plate Analysis (Estimated Meal)",
-            confidence="medium",
-            total_calories=520,
-            protein_g=42.0,
-            carbs_g=48.0,
-            fat_g=14.0,
-            food_items=[
-                FoodItemAnalysis(
-                    name="Lean Protein Portion",
-                    portion_est="approx. 180g",
-                    calories=310,
-                    protein_g=38.0,
-                    carbs_g=0.0,
-                    fat_g=8.0,
-                ),
-                FoodItemAnalysis(
-                    name="Complex Carbohydrates",
-                    portion_est="approx. 140g",
-                    calories=170,
-                    protein_g=3.0,
-                    carbs_g=38.0,
-                    fat_g=1.5,
-                ),
-                FoodItemAnalysis(
-                    name="Vegetables & Olive Dressing",
-                    portion_est="approx. 100g",
-                    calories=40,
-                    protein_g=1.0,
-                    carbs_g=5.0,
-                    fat_g=4.5,
-                ),
-            ],
-            coaching_tip=f"Analyzed meal image successfully. Tip: Aim for 30-45g of protein per main meal to maximize muscle protein synthesis.",
+    if not settings.LLM_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Meal scanning needs an AI key. Set LLM_API_KEY in the backend .env file.",
         )
+
+    # 4. Call Gemini Vision
+    try:
+        response_text = _call_vision_model(image_bytes, mime_type, prompt)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The AI vision service could not be reached. Please try again.",
+        )
+
+    # 5. Read the answer. If it is unusable, say so instead of showing made-up numbers.
+    try:
+        return MealScanResponse(**_parse_scan_json(response_text))
+    except (ValueError, TypeError, KeyError):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The AI returned an answer that could not be read. Try a clearer photo.",
+        )
+
+
+def _call_vision_model(image_bytes: bytes, mime_type: str, prompt: str) -> str:
+    """Send the photo to Gemini and return its raw text answer.
+
+    Kept separate so tests can replace it without any network access.
+    """
+    import google.generativeai as genai
+    from app.core.config import settings
+
+    genai.configure(api_key=settings.LLM_API_KEY)
+    vision_model_name = getattr(settings, "LLM_MODEL", "gemini-3.5-flash-lite")
+    if vision_model_name in ("gemini-2.0-flash", "gemini-2.5-flash"):
+        vision_model_name = "gemini-3.5-flash-lite"
+    model = genai.GenerativeModel(vision_model_name)
+    response = model.generate_content([{"mime_type": mime_type, "data": image_bytes}, prompt])
+    return response.text.strip()
+
+
+def _parse_scan_json(text: str) -> dict:
+    """Extract the JSON object from the AI text (it may be wrapped in code fences)."""
+    match = re.search(r"\{.*\}", text or "", re.DOTALL)
+    if not match:
+        raise ValueError("no JSON object in AI answer")
+    data = json.loads(match.group(0))
+    if not isinstance(data, dict):
+        raise ValueError("AI answer is not a JSON object")
+
+    # The AI sometimes sends decimals for calories; the schema wants whole numbers.
+    if isinstance(data.get("total_calories"), float):
+        data["total_calories"] = round(data["total_calories"])
+    for item in data.get("food_items") or []:
+        if isinstance(item, dict) and isinstance(item.get("calories"), float):
+            item["calories"] = round(item["calories"])
+    return data
