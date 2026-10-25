@@ -5,6 +5,19 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// FastAPI sends validation errors (422) as a list of {loc, msg}; turn them into text.
+function formatErrorDetail(detail) {
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => {
+        const field = Array.isArray(d.loc) ? d.loc.filter((part) => part !== 'body').join('.') : '';
+        return field ? `${field}: ${d.msg}` : d.msg;
+      })
+      .join('; ');
+  }
+  return detail;
+}
+
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
   const headers = {
@@ -21,7 +34,7 @@ async function request(endpoint, options = {}) {
     let errorDetail = 'API request failed';
     try {
       const errorData = await response.json();
-      errorDetail = errorData.detail || errorData.message || JSON.stringify(errorData);
+      errorDetail = formatErrorDetail(errorData.detail) || errorData.message || JSON.stringify(errorData);
     } catch {
       errorDetail = `HTTP ${response.status}: ${response.statusText}`;
     }
@@ -103,6 +116,43 @@ export async function scanMealPhoto(imageBase64, mimeType = 'image/jpeg', mealSl
       mime_type: mimeType,
       meal_slot: mealSlot,
     }),
+  });
+}
+
+// ── Nutrition: food log (diary) ───────────────────────────────────────────────
+
+export async function listFoodLog(date = null) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return request(`/api/nutrition/log${query}`);
+}
+
+export async function getDailySummary(date = null) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return request(`/api/nutrition/log/summary${query}`);
+}
+
+export async function createFoodLogEntry(data) {
+  return request('/api/nutrition/log', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateFoodLogEntry(entryId, data) {
+  return request(`/api/nutrition/log/${entryId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteFoodLogEntry(entryId) {
+  return request(`/api/nutrition/log/${entryId}`, { method: 'DELETE' });
+}
+
+export async function suggestMeal(data = {}) {
+  return request('/api/nutrition/suggest-meal', {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 }
 

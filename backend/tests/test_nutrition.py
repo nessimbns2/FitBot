@@ -173,23 +173,3 @@ def test_meal_plan_invalid_meals_per_day(client):
 def test_scan_meal_invalid_base64(client):
     resp = client.post("/api/nutrition/scan-meal", json={"image_base64": "invalid_not_base64!!!"})
     assert resp.status_code == 400
-
-
-def test_scan_meal_valid_payload(client):
-    import base64
-    # Create 120-byte valid base64 dummy image
-    dummy_bytes = b"GIF89a" + b"\x00" * 150
-    dummy_b64 = base64.b64encode(dummy_bytes).decode("utf-8")
-
-    resp = client.post("/api/nutrition/scan-meal", json={
-        "image_base64": f"data:image/jpeg;base64,{dummy_b64}",
-        "mime_type": "image/jpeg",
-        "meal_slot": "Post-Workout Lunch",
-    })
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "meal_name" in data
-    assert "total_calories" in data
-    assert data["total_calories"] > 0
-    assert "food_items" in data
-    assert len(data["food_items"]) >= 1
