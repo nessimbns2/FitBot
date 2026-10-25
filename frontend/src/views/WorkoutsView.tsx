@@ -704,7 +704,7 @@ export function WorkoutsView() {
                     </div>
                   </div>
                   <Button
-                    variant="accent"
+                    variant="primary"
                     size="sm"
                     onClick={handleAISuggestExercise}
                     disabled={isAnalyzingRoutine || !routineResult}

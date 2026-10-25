@@ -381,7 +381,7 @@ export function NutritionView() {
           actionSlot={
             <div className="flex items-center gap-3">
               <Button
-                variant="accent"
+                variant="primary"
                 size="md"
                 onClick={() => {
                   setIsScannerOpen(true);
@@ -671,7 +671,7 @@ export function NutritionView() {
           subtitle="Instant plate recognition via Gemini Vision. Track your daily nutritional intake meal by meal."
           action={
             <Button
-              variant="accent"
+              variant="primary"
               size="sm"
               onClick={() => {
                 setIsScannerOpen(true);
