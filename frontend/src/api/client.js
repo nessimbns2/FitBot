@@ -69,6 +69,13 @@ export async function predictSomatotype(data) {
   });
 }
 
+export async function getAthleteBlueprint(overrides = {}) {
+  return request('/api/user/blueprint', {
+    method: 'POST',
+    body: JSON.stringify(overrides),
+  });
+}
+
 
 export async function listSessions() {
   return request('/api/user/sessions');

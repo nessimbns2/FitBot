@@ -72,3 +72,15 @@ def predict_somatotype(req: models.SomatotypeQuizRequest, session: SessionDep):
     """Analyze assessment answers and return the predicted somatotype with training/nutrition advice."""
     return service.predict_somatotype(session, req)
 
+
+# ── Athlete Blueprint & Profile Audit ─────────────────────────────────────────
+
+
+@router.post("/blueprint", response_model=models.AthleteBlueprintResponse)
+def get_athlete_blueprint(
+    session: SessionDep,
+    req: models.AthleteBlueprintRequest = None,
+):
+    """Generate a scientific Athlete AI Blueprint and physiological profile audit."""
+    return service.generate_athlete_blueprint(session, req)
+

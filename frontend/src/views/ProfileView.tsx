@@ -41,6 +41,7 @@ import {
   Zap,
   ArrowRight,
   ChevronLeft,
+  Award,
 } from 'lucide-react';
 
 interface GoalOption {
@@ -117,6 +118,7 @@ const SOMATOTYPE_OPTIONS: SomatotypeOption[] = [
 ];
 
 import { SomatotypeQuizModal } from '../components/SomatotypeQuizModal';
+import { AthleteBlueprintModal } from '../components/AthleteBlueprintModal';
 
 export function ProfileView() {
   const { profile, isLoading, update, needsOnboarding } = useProfile();
@@ -134,6 +136,9 @@ export function ProfileView() {
 
   // Somatotype diagnostic quiz modal state
   const [showSomatotypeQuiz, setShowSomatotypeQuiz] = useState(false);
+
+  // Athlete Blueprint modal state
+  const [showBlueprintModal, setShowBlueprintModal] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -610,6 +615,61 @@ export function ProfileView() {
                 </div>
               </div>
             </Card>
+
+            {/* AI Athlete Blueprint & Profile Audit Card */}
+            <Card className="border-[var(--accent-primary)]/40 bg-gradient-to-br from-[var(--accent-primary-subtle)] via-[var(--bg-card)] to-[var(--bg-subtle)] relative overflow-hidden">
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--accent-text)]">
+                    <Sparkles className="w-4 h-4 text-[var(--accent-primary)]" />
+                    AI Athlete Blueprint
+                  </div>
+                  <Badge variant="accent" size="sm">
+                    Sports Science Audit
+                  </Badge>
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-[var(--text-primary)] flex items-center gap-2">
+                    <Award className="w-4 h-4 text-[var(--accent-primary)]" />
+                    Physiological Profile Audit
+                  </h4>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    Synthesize your biometrics, somatotype, volume capacity (MEV/MRV), and 24-week periodization milestones.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] font-semibold text-[var(--text-muted)]">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Volume Landmarks</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Genetic Levers</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Risk Safeguards</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Milestones</span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="primary"
+                  size="md"
+                  type="button"
+                  onClick={() => setShowBlueprintModal(true)}
+                  leftIcon={<Sparkles className="w-4 h-4" />}
+                  className="w-full mt-2"
+                >
+                  Generate Athlete Blueprint
+                </Button>
+              </div>
+            </Card>
           </div>
         </form>
 
@@ -763,6 +823,12 @@ export function ProfileView() {
               message: `Somatotype updated to ${predicted.toUpperCase()} based on AI assessment. Click 'Save Profile' to lock it in.`,
             });
           }}
+        />
+
+        <AthleteBlueprintModal
+          isOpen={showBlueprintModal}
+          onClose={() => setShowBlueprintModal(false)}
+          profile={profile}
         />
       </div>
     </div>

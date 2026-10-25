@@ -153,3 +153,49 @@ def test_predict_somatotype_and_auto_apply(client: TestClient, session: Session)
     assert prof_resp.status_code == 200
     assert prof_resp.json()["somatotype"] == "ectomorph"
 
+
+def test_generate_athlete_blueprint_defaults(client: TestClient, session: Session):
+    """Test generating athlete blueprint with existing profile defaults."""
+    resp = client.post("/api/user/blueprint", json={})
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert "athlete_archetype" in data
+    assert "executive_summary" in data
+    assert len(data["physiological_strengths"]) >= 1
+    assert len(data["blindspots_and_risks"]) >= 1
+    assert "volume_landmarks" in data
+    assert "mev_sets_per_week" in data["volume_landmarks"]
+    assert "mrv_sets_per_week" in data["volume_landmarks"]
+    assert "recovery_capacity" in data["volume_landmarks"]
+    assert "timeline_projection" in data
+    assert "rate_of_change" in data["timeline_projection"]
+    assert len(data["key_coaching_directives"]) >= 1
+    assert "calculated_metrics" in data
+    assert data["calculated_metrics"]["bmi"] > 10
+
+
+def test_generate_athlete_blueprint_with_overrides(client: TestClient, session: Session):
+    """Test generating athlete blueprint with explicit biometric overrides."""
+    payload = {
+        "age": 28,
+        "sex": "female",
+        "height_cm": 168.0,
+        "weight_kg": 62.0,
+        "body_fat_pct": 21.5,
+        "somatotype": "mesomorph",
+        "goal": "fat_loss",
+        "experience_level": "intermediate",
+        "activity_level": "very_active",
+    }
+    resp = client.post("/api/user/blueprint", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["calculated_metrics"]["somatotype"] == "mesomorph"
+    assert data["calculated_metrics"]["goal"] == "fat_loss"
+    assert data["calculated_metrics"]["experience_level"] == "intermediate"
+    assert data["calculated_metrics"]["lean_mass_kg"] is not None
+    assert "fat loss" in data["timeline_projection"]["rate_of_change"].lower() or "kg" in data["timeline_projection"]["rate_of_change"].lower()
+
+
