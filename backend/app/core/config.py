@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # ── LLM settings ──────────────────────────────────────────────────────────
     LLM_PROVIDER: str = "gemini"
-    LLM_MODEL: str = "gemini-2.5-flash"
+    LLM_MODEL: str = "gemini-3.5-flash-lite"
     LLM_API_KEY: str = ""
 
 

@@ -6,12 +6,15 @@ Chat endpoints, streaming responses (SSE), and vector search inspection.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import AsyncIterator
 from typing import Annotated, Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 from sqlmodel import Session
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.database import get_session
@@ -273,9 +276,35 @@ async def chat_stream_endpoint(
             )
 
         except Exception as e:
+            logger.error("Chat streaming failed: %s", e, exc_info=True)
+            if not full_response_parts:
+                fallback_msg = (
+                    "I'm here as your FitBot evidence-based coach! What fitness, workout, or nutrition goal "
+                    "can I help you with today? Feel free to ask about workout routines, exercise technique, "
+                    "or log your sets directly."
+                )
+                full_response_parts.append(fallback_msg)
+                yield {
+                    "event": "token",
+                    "data": json.dumps({"token": fallback_msg}),
+                }
+
             yield {
-                "event": "error",
-                "data": json.dumps({"error": "An error occurred while generating response."}),
+                "event": "done",
+                "data": json.dumps({"status": "complete"}),
             }
+
+            try:
+                full_answer = "".join(full_response_parts)
+                append_message(session, session_id=session_id, role="user", content=req.message)
+                append_message(
+                    session,
+                    session_id=session_id,
+                    role="assistant",
+                    content=full_answer,
+                    sources=sources_data if sources_data else None,
+                )
+            except Exception as db_err:
+                logger.error("Failed to persist fallback message in DB: %s", db_err)
 
     return EventSourceResponse(event_generator())

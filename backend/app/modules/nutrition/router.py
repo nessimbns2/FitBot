@@ -341,7 +341,10 @@ def scan_meal(
         if api_key:
             genai.configure(api_key=api_key)
 
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        vision_model_name = getattr(settings, "LLM_MODEL", "gemini-3.5-flash-lite")
+        if vision_model_name in ("gemini-2.0-flash", "gemini-2.5-flash"):
+            vision_model_name = "gemini-3.5-flash-lite"
+        model = genai.GenerativeModel(vision_model_name)
         contents = [
             {"mime_type": mime_type, "data": image_bytes},
             prompt,
