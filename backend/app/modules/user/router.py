@@ -73,3 +73,16 @@ def predict_somatotype(req: models.SomatotypeQuizRequest, user: CurrentUser, ses
     """Analyze assessment answers and return the predicted somatotype with training/nutrition advice."""
     return service.predict_somatotype(session, user.id, req)
 
+
+# ── Athlete Blueprint & Profile Audit ─────────────────────────────────────────
+
+
+@router.post("/blueprint", response_model=models.AthleteBlueprintResponse)
+def get_athlete_blueprint(
+    user: CurrentUser,
+    session: SessionDep,
+    req: models.AthleteBlueprintRequest | None = None,
+):
+    """Generate a scientific Athlete AI Blueprint and physiological profile audit."""
+    return service.generate_athlete_blueprint(session, user.id, req)
+

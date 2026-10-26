@@ -43,6 +43,7 @@ import {
   Zap,
   ArrowRight,
   ChevronLeft,
+  Award,
 } from 'lucide-react';
 
 interface GoalOption {
@@ -119,6 +120,7 @@ const SOMATOTYPE_OPTIONS: SomatotypeOption[] = [
 ];
 
 import { SomatotypeQuizModal } from '../components/SomatotypeQuizModal';
+import { AthleteBlueprintModal } from '../components/AthleteBlueprintModal';
 
 export function ProfileView() {
   const { profile, isLoading, update, needsOnboarding } = useProfile();
@@ -140,6 +142,9 @@ export function ProfileView() {
   // Right after sign-up the register page sends { welcome: true }: open the onboarding wizard.
   const location = useLocation();
   const isNewAccount = Boolean((location.state as { welcome?: boolean } | null)?.welcome);
+
+  // Athlete Blueprint modal state
+  const [showBlueprintModal, setShowBlueprintModal] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -616,6 +621,61 @@ export function ProfileView() {
                 </div>
               </div>
             </Card>
+
+            {/* AI Athlete Blueprint & Profile Audit Card */}
+            <Card className="border-[var(--accent-primary)]/40 bg-gradient-to-br from-[var(--accent-primary-subtle)] via-[var(--bg-card)] to-[var(--bg-subtle)] relative overflow-hidden">
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--accent-text)]">
+                    <Sparkles className="w-4 h-4 text-[var(--accent-primary)]" />
+                    Your Fitness Blueprint
+                  </div>
+                  <Badge variant="accent" size="sm">
+                    Personalized Plan
+                  </Badge>
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-[var(--text-primary)] flex items-center gap-2">
+                    <Award className="w-4 h-4 text-[var(--accent-primary)]" />
+                    Your Personalized Fitness Plan
+                  </h4>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    See your body's strengths, how many sets to do each week, and realistic results to expect over 3 and 6 months.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] font-semibold text-[var(--text-muted)]">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Workout Sets</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Body Strengths</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>What to Watch</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Expected Results</span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="primary"
+                  size="md"
+                  type="button"
+                  onClick={() => setShowBlueprintModal(true)}
+                  leftIcon={<Sparkles className="w-4 h-4" />}
+                  className="w-full mt-2"
+                >
+                  View Your Fitness Blueprint
+                </Button>
+              </div>
+            </Card>
           </div>
         </form>
 
@@ -771,6 +831,12 @@ export function ProfileView() {
               message: `Somatotype updated to ${predicted.toUpperCase()} based on AI assessment. Click 'Save Profile' to lock it in.`,
             });
           }}
+        />
+
+        <AthleteBlueprintModal
+          isOpen={showBlueprintModal}
+          onClose={() => setShowBlueprintModal(false)}
+          profile={profile}
         />
       </div>
     </div>

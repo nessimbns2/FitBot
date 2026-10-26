@@ -11,7 +11,7 @@ postponed evaluation breaks relationship resolution.
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -199,3 +199,41 @@ class SomatotypeQuizResponse(SQLModel):
     macro_shift_note: str
     profile_updated: bool = False
 
+
+# ── Athlete Blueprint & Profile Audit Schemas ────────────────────────────────
+
+class VolumeLandmarks(SQLModel):
+    mev_sets_per_week: str = Field(description="Minimum Effective Volume (sets/muscle group/week)")
+    mrv_sets_per_week: str = Field(description="Maximum Recoverable Volume (sets/muscle group/week)")
+    recommended_frequency: str = Field(description="Optimal training frequency per muscle group")
+    recovery_capacity: str = Field(description="High | Moderate | Sensitive")
+
+
+class TimelineProjection(SQLModel):
+    rate_of_change: str = Field(description="Projected monthly change rate")
+    milestone_12_weeks: str = Field(description="Expected 12-week adaptation")
+    milestone_24_weeks: str = Field(description="Expected 24-week transformation")
+
+
+class AthleteBlueprintRequest(SQLModel):
+    age: Optional[int] = Field(default=None, ge=14, le=100)
+    sex: Optional[Sex] = None
+    height_cm: Optional[float] = Field(default=None, ge=120.0, le=230.0)
+    weight_kg: Optional[float] = Field(default=None, ge=30.0, le=300.0)
+    body_fat_pct: Optional[float] = Field(default=None, ge=3.0, le=60.0)
+    somatotype: Optional[Somatotype] = None
+    experience_level: Optional[ExperienceLevel] = None
+    goal: Optional[Goal] = None
+    activity_level: Optional[ActivityLevel] = None
+
+
+class AthleteBlueprintResponse(SQLModel):
+    athlete_archetype: str
+    executive_summary: str
+    physiological_strengths: List[str]
+    blindspots_and_risks: List[str]
+    volume_landmarks: VolumeLandmarks
+    timeline_projection: TimelineProjection
+    key_coaching_directives: List[str]
+    calculated_metrics: Dict[str, Any] = Field(default_factory=dict)
+    sources: List[Dict[str, Any]] = Field(default_factory=list)

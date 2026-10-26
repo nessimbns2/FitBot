@@ -384,21 +384,10 @@ def scan_meal(
 
     if not settings.LLM_API_KEY.strip():
         err = LLMUnavailableError("missing_api_key")
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=err.user_message.split(".")[0] + ".")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=err.user_message.split(".")[0] + ". Set LLM_API_KEY in backend/.env.")
 
     try:
-        import google.generativeai as genai
-
-        genai.configure(api_key=settings.LLM_API_KEY)
-        vision_model_name = settings.LLM_MODEL or "gemini-3.5-flash-lite"
-        if vision_model_name in ("gemini-2.0-flash", "gemini-2.5-flash"):
-            vision_model_name = "gemini-3.5-flash-lite"
-        model = genai.GenerativeModel(vision_model_name)
-        response = model.generate_content(
-            [{"mime_type": mime_type, "data": image_bytes}, prompt],
-            request_options={"timeout": settings.LLM_TIMEOUT_SECONDS},
-        )
-        response_text = (response.text or "").strip()
+        response_text = _call_vision_model(image_bytes, mime_type, prompt)
     except Exception as exc:  # noqa: BLE001 — classified into a user-facing reason
         err = classify_llm_error(exc)
         raise HTTPException(
@@ -408,9 +397,7 @@ def scan_meal(
 
     # 4. Validate the model output before it reaches the UI
     try:
-        match = re.search(r"\{.*\}", response_text, re.DOTALL)
-        data = json.loads(match.group(0) if match else response_text)
-        return MealScanResponse(**data)
+        return MealScanResponse(**_parse_scan_json(response_text))
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -462,3 +449,43 @@ def delete_meal(meal_id: int, user: CurrentUser, session: SessionDep):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal not found.")
     session.delete(meal)
     session.commit()
+
+
+def _call_vision_model(image_bytes: bytes, mime_type: str, prompt: str) -> str:
+    """Send the photo to Gemini and return its raw text answer.
+
+    Kept separate so tests can replace it without any network access.
+    """
+    import google.generativeai as genai
+    from app.core.config import settings
+
+    genai.configure(api_key=settings.LLM_API_KEY)
+    vision_model_name = getattr(settings, "LLM_MODEL", "gemini-3.5-flash-lite")
+    if vision_model_name in ("gemini-2.0-flash", "gemini-2.5-flash"):
+        vision_model_name = "gemini-3.5-flash-lite"
+    model = genai.GenerativeModel(vision_model_name)
+    response = model.generate_content([{"mime_type": mime_type, "data": image_bytes}, prompt], request_options={"timeout": settings.LLM_TIMEOUT_SECONDS})
+    return response.text.strip()
+
+
+def _parse_scan_json(text: str) -> dict:
+    """Extract the JSON object from the AI text (it may be wrapped in code fences)."""
+    match = re.search(r"\{.*\}", text or "", re.DOTALL)
+    if not match:
+        raise ValueError("no JSON object in AI answer")
+    data = json.loads(match.group(0))
+    if not isinstance(data, dict):
+        raise ValueError("AI answer is not a JSON object")
+
+    # The AI sometimes sends decimals for calories; the schema wants whole numbers.
+    if isinstance(data.get("total_calories"), float):
+        data["total_calories"] = round(data["total_calories"])
+    for item in data.get("food_items") or []:
+        if isinstance(item, dict) and isinstance(item.get("calories"), float):
+            item["calories"] = round(item["calories"])
+    return data
+
+
+# Food diary and meal suggestions inherit this router's authentication.
+from app.modules.nutrition.log_router import router as food_log_router
+router.include_router(food_log_router)

@@ -1,8 +1,5 @@
--- FitBot PostgreSQL schema (generated with pg_dump --schema-only from the Alembic migrations)
+-- FitBot PostgreSQL schema (generated from the Alembic migrations)
 -- Normally created by: cd backend && alembic upgrade head
-
-
-\restrict CQBneAI9doqRFTZR1exnDkF3DC3qLwPe9Acq7SeaP7YyVYascPnhPbsWmL6vrwQ
 
 CREATE TYPE public.activitylevel AS ENUM (
     'sedentary',
@@ -23,6 +20,21 @@ CREATE TYPE public.goal AS ENUM (
     'fat_loss',
     'strength',
     'athletic_performance'
+);
+
+CREATE TYPE public.logsource AS ENUM (
+    'manual',
+    'photo_scan',
+    'ai_text',
+    'ai_suggestion'
+);
+
+CREATE TYPE public.mealslotname AS ENUM (
+    'breakfast',
+    'lunch',
+    'dinner',
+    'post_workout',
+    'snack'
 );
 
 CREATE TYPE public.sex AS ENUM (
@@ -73,6 +85,68 @@ CREATE TABLE public.chat_session (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
+
+CREATE TABLE public.deload_records (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    exercise_id character varying NOT NULL,
+    strategy character varying NOT NULL,
+    root_cause character varying NOT NULL,
+    confidence character varying NOT NULL,
+    target_weight_kg double precision NOT NULL,
+    target_sets integer NOT NULL,
+    target_reps_range character varying NOT NULL,
+    target_rpe_ceiling double precision NOT NULL,
+    resume_weight_kg double precision NOT NULL,
+    duration_sessions integer NOT NULL,
+    constants_version character varying NOT NULL,
+    unit character varying NOT NULL,
+    plate_increment_kg double precision NOT NULL,
+    weight_match_tolerance_kg double precision NOT NULL,
+    profile_is_default boolean NOT NULL,
+    applied_at timestamp with time zone NOT NULL,
+    expires_at timestamp with time zone,
+    cancelled_at timestamp with time zone,
+    cancel_reason character varying,
+    completed_at timestamp with time zone,
+    feedback character varying
+);
+
+CREATE SEQUENCE public.deload_records_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.deload_records_id_seq OWNED BY public.deload_records.id;
+
+CREATE TABLE public.food_log_entries (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    log_date date NOT NULL,
+    meal_slot public.mealslotname NOT NULL,
+    name character varying NOT NULL,
+    calories double precision NOT NULL,
+    protein_g double precision NOT NULL,
+    carbs_g double precision NOT NULL,
+    fat_g double precision NOT NULL,
+    source public.logsource NOT NULL,
+    notes character varying,
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL
+);
+
+CREATE SEQUENCE public.food_log_entries_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.food_log_entries_id_seq OWNED BY public.food_log_entries.id;
 
 CREATE TABLE public.meal_logs (
     id integer NOT NULL,
@@ -197,6 +271,10 @@ ALTER SEQUENCE public.workout_sets_id_seq OWNED BY public.workout_sets.id;
 
 ALTER TABLE ONLY public.chat_message ALTER COLUMN id SET DEFAULT nextval('public.chat_message_id_seq'::regclass);
 
+ALTER TABLE ONLY public.deload_records ALTER COLUMN id SET DEFAULT nextval('public.deload_records_id_seq'::regclass);
+
+ALTER TABLE ONLY public.food_log_entries ALTER COLUMN id SET DEFAULT nextval('public.food_log_entries_id_seq'::regclass);
+
 ALTER TABLE ONLY public.meal_logs ALTER COLUMN id SET DEFAULT nextval('public.meal_logs_id_seq'::regclass);
 
 ALTER TABLE ONLY public.saved_routines ALTER COLUMN id SET DEFAULT nextval('public.saved_routines_id_seq'::regclass);
@@ -216,6 +294,12 @@ ALTER TABLE ONLY public.chat_message
 ALTER TABLE ONLY public.chat_session
     ADD CONSTRAINT chat_session_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.deload_records
+    ADD CONSTRAINT deload_records_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.food_log_entries
+    ADD CONSTRAINT food_log_entries_pkey PRIMARY KEY (id);
+
 ALTER TABLE ONLY public.meal_logs
     ADD CONSTRAINT meal_logs_pkey PRIMARY KEY (id);
 
@@ -234,6 +318,16 @@ ALTER TABLE ONLY public.workout_sets
 CREATE INDEX ix_chat_message_session_id ON public.chat_message USING btree (session_id);
 
 CREATE INDEX ix_chat_session_user_id ON public.chat_session USING btree (user_id);
+
+CREATE INDEX ix_deload_records_applied_at ON public.deload_records USING btree (applied_at);
+
+CREATE INDEX ix_deload_records_exercise_id ON public.deload_records USING btree (exercise_id);
+
+CREATE INDEX ix_deload_records_user_id ON public.deload_records USING btree (user_id);
+
+CREATE INDEX ix_food_log_entries_log_date ON public.food_log_entries USING btree (log_date);
+
+CREATE INDEX ix_food_log_entries_user_id ON public.food_log_entries USING btree (user_id);
 
 CREATE INDEX ix_meal_logs_logged_on ON public.meal_logs USING btree (logged_on);
 
@@ -257,6 +351,12 @@ ALTER TABLE ONLY public.chat_message
 ALTER TABLE ONLY public.chat_session
     ADD CONSTRAINT chat_session_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.deload_records
+    ADD CONSTRAINT deload_records_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.food_log_entries
+    ADD CONSTRAINT food_log_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
 ALTER TABLE ONLY public.meal_logs
     ADD CONSTRAINT meal_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
@@ -268,6 +368,3 @@ ALTER TABLE ONLY public.user_profile
 
 ALTER TABLE ONLY public.workout_sets
     ADD CONSTRAINT workout_sets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-\unrestrict CQBneAI9doqRFTZR1exnDkF3DC3qLwPe9Acq7SeaP7YyVYascPnhPbsWmL6vrwQ
-

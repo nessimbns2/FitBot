@@ -9,11 +9,14 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from app.modules.user.models import (
+    AthleteBlueprintRequest,
+    AthleteBlueprintResponse,
     ChatMessage,
     ChatSession,
     MessageRead,
@@ -21,11 +24,16 @@ from app.modules.user.models import (
     Somatotype,
     SomatotypeQuizRequest,
     SomatotypeQuizResponse,
+    TimelineProjection,
     UserProfile,
     UserProfileUpdate,
+    VolumeLandmarks,
 )
-from app.modules.rag_core.engine import get_llm_client
+from app.modules.nutrition.calculator import calculate
+from app.modules.rag_core.engine import get_llm_client, get_vector_store
 from app.prompts import (
+    ATHLETE_BLUEPRINT_SYSTEM_PROMPT,
+    ATHLETE_BLUEPRINT_USER_TEMPLATE,
     SOMATOTYPE_PREDICTION_SYSTEM_PROMPT,
     SOMATOTYPE_PREDICTION_USER_TEMPLATE,
     SOMATOTYPE_QUESTIONS,
@@ -280,3 +288,221 @@ def predict_somatotype(session: Session, user_id: int, req: SomatotypeQuizReques
         profile_updated=profile_updated,
     )
 
+
+# ── AI Athlete Blueprint & Profile Audit ─────────────────────────────────────
+
+def generate_athlete_blueprint(
+    session: Session,
+    user_id: int,
+    req: Optional[AthleteBlueprintRequest] = None,
+) -> AthleteBlueprintResponse:
+    """Generate an evidence-backed Athlete AI Blueprint & Profile Audit."""
+    profile = get_or_create_profile(session, user_id)
+
+    # Resolve active values (overrides take precedence if supplied)
+    age = req.age if req and req.age is not None else profile.age
+    sex = req.sex.value if req and req.sex is not None else profile.sex.value
+    height_cm = req.height_cm if req and req.height_cm is not None else profile.height_cm
+    weight_kg = req.weight_kg if req and req.weight_kg is not None else profile.weight_kg
+    body_fat_pct = req.body_fat_pct if req and req.body_fat_pct is not None else profile.body_fat_pct
+    somatotype = req.somatotype.value if req and req.somatotype is not None else profile.somatotype.value
+    experience_level = req.experience_level.value if req and req.experience_level is not None else profile.experience_level.value
+    goal = req.goal.value if req and req.goal is not None else profile.goal.value
+    activity_level = req.activity_level.value if req and req.activity_level is not None else profile.activity_level.value
+
+    # Compute BMI
+    height_m = max(1.2, height_cm / 100.0)
+    bmi = weight_kg / (height_m ** 2)
+
+    # Compute deterministic nutrition & macro benchmarks
+    macro_res = calculate(
+        sex=sex,
+        weight_kg=weight_kg,
+        height_cm=height_cm,
+        age=age,
+        activity_level=activity_level,
+        goal=goal,
+        somatotype=somatotype if somatotype != "unknown" else "mesomorph",
+        body_fat_pct=body_fat_pct,
+    )
+
+    # Lean body mass estimate
+    lean_mass_kg = round(weight_kg * (1 - (body_fat_pct / 100.0)), 1) if body_fat_pct else None
+
+    # Retrieve context from vector store
+    sources: list[dict] = []
+    context_str = ""
+    try:
+        store = get_vector_store()
+        query = f"{somatotype} {goal} hypertrophy volume progressive overload recovery"
+        passages = store.search_all(query, k=3, min_score=0.25)
+        if passages:
+            sources = [{"source": p.source, "page": p.page, "score": round(p.score, 4)} for p in passages]
+            context_str = "\n".join(f"[{i+1}] {p.text}" for i, p in enumerate(passages))
+    except Exception:
+        pass
+
+    if not context_str:
+        context_str = (
+            "Evidence Guidelines: Hypertrophy responds best to 10-20 working sets per muscle group weekly. "
+            "Progressive overload via weight or reps is primary driver."
+        )
+
+    # Build prompt
+    body_fat_str = f"{body_fat_pct:.1f}% (Est. Lean Mass: {lean_mass_kg} kg)" if body_fat_pct else "Not specified"
+    user_prompt = ATHLETE_BLUEPRINT_USER_TEMPLATE.format(
+        age=age,
+        sex=sex.capitalize(),
+        height_cm=height_cm,
+        weight_kg=weight_kg,
+        bmi=bmi,
+        body_fat_pct=body_fat_str,
+        somatotype=somatotype.capitalize() if somatotype != "unknown" else "General Athlete",
+        experience_level=experience_level.capitalize(),
+        goal=goal.replace("_", " ").capitalize(),
+        activity_level=activity_level.replace("_", " ").capitalize(),
+        target_kcal=round(macro_res.target_kcal),
+        bmr=round(macro_res.bmr),
+        tdee=round(macro_res.tdee),
+        protein_g=round(macro_res.protein_g),
+        carbs_g=round(macro_res.carbs_g),
+        fat_g=round(macro_res.fat_g),
+        context=context_str,
+    )
+
+    # Deterministic evidence-based defaults (in simple, everyday language)
+    archetype_map = {
+        "ectomorph": "Lean Builder — High-Energy Mass Plan",
+        "mesomorph": "Athletic Builder — Steady Muscle Growth Plan",
+        "endomorph": "Power Builder — Strength & Fat Burn Plan",
+        "unknown": "Personalized Fitness Blueprint",
+    }
+    default_archetype = archetype_map.get(somatotype, "Personalized Fitness Blueprint")
+
+    default_strengths = [
+        f"Daily nutrition target of {round(macro_res.target_kcal)} calories with {round(macro_res.protein_g)}g protein to help your muscles rebuild quickly.",
+        f"Clear plan for {goal.replace('_', ' ')} tailored to your {experience_level} training level.",
+        f"{somatotype.capitalize()} body type naturally turns your food into great workout fuel and steady recovery.",
+    ]
+
+    default_risks = [
+        "Doing too many sets too fast can tire out your joints and slow down your progress.",
+        "Getting less than 7 hours of sleep will slow down your muscle repair and workout energy.",
+    ]
+
+    mev = (
+        "8–10 sets (Minimum to grow)"
+        if experience_level == "beginner"
+        else ("10–12 sets (Minimum to grow)" if experience_level == "intermediate" else "12–14 sets (Minimum to grow)")
+    )
+    mrv = (
+        "14–16 sets (Max before tiring out)"
+        if experience_level == "beginner"
+        else ("18–20 sets (Max before tiring out)" if experience_level == "intermediate" else "22–24 sets (Max before tiring out)")
+    )
+    recovery_cap = (
+        "Fast recovery"
+        if somatotype == "mesomorph" and age < 35
+        else ("Normal recovery" if somatotype == "endomorph" or age < 45 else "Needs extra rest")
+    )
+
+    volume_landmarks = VolumeLandmarks(
+        mev_sets_per_week=mev,
+        mrv_sets_per_week=mrv,
+        recommended_frequency="2 to 3 times a week per muscle",
+        recovery_capacity=recovery_cap,
+    )
+
+    rate_str = (
+        "+0.3 to +0.5 kg muscle per month"
+        if goal == "hypertrophy"
+        else ("-0.5 to -0.8 kg fat loss per week" if goal == "fat_loss" else "Steady increases in strength and lifting power")
+    )
+    timeline_proj = TimelineProjection(
+        rate_of_change=rate_str,
+        milestone_12_weeks="You will notice clear strength increases, lift heavier weights with good form, and feel much more solid.",
+        milestone_24_weeks="Visible muscle tone and body transformation, with higher stamina and consistent lifting progress.",
+    )
+
+    directives = [
+        f"Eat around {round(macro_res.protein_g)}g of protein every day spread out across your meals.",
+        "Add a little more weight or an extra repetition each week when an exercise feels easier.",
+        "Take a lighter training week (deload) every 6 to 8 weeks to let your body fully recharge.",
+    ]
+
+    summary = (
+        f"You have a great foundation to reach your {goal.replace('_', ' ')} goal! "
+        f"Eating around {round(macro_res.target_kcal)} calories a day gives you the right energy. "
+        f"For your {somatotype.capitalize()} body type and {experience_level} level, "
+        "doing 10–20 good sets per muscle group each week will give you the best, most consistent results."
+    )
+
+    # LLM Enhancement
+    try:
+        llm = get_llm_client()
+        raw_res = llm.complete(
+            messages=[{"role": "user", "content": user_prompt}],
+            system=ATHLETE_BLUEPRINT_SYSTEM_PROMPT,
+        )
+        cleaned = raw_res.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        if cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        parsed = json.loads(cleaned.strip())
+
+        if parsed.get("athlete_archetype"):
+            default_archetype = str(parsed["athlete_archetype"]).strip()
+        if parsed.get("executive_summary"):
+            summary = str(parsed["executive_summary"]).strip()
+        if parsed.get("physiological_strengths") and isinstance(parsed["physiological_strengths"], list):
+            default_strengths = [str(s) for s in parsed["physiological_strengths"] if s]
+        if parsed.get("blindspots_and_risks") and isinstance(parsed["blindspots_and_risks"], list):
+            default_risks = [str(r) for r in parsed["blindspots_and_risks"] if r]
+        if parsed.get("volume_landmarks") and isinstance(parsed["volume_landmarks"], dict):
+            vl = parsed["volume_landmarks"]
+            volume_landmarks = VolumeLandmarks(
+                mev_sets_per_week=vl.get("mev_sets_per_week", mev),
+                mrv_sets_per_week=vl.get("mrv_sets_per_week", mrv),
+                recommended_frequency=vl.get("recommended_frequency", "2x - 3x per muscle group weekly"),
+                recovery_capacity=vl.get("recovery_capacity", recovery_cap),
+            )
+        if parsed.get("timeline_projection") and isinstance(parsed["timeline_projection"], dict):
+            tp = parsed["timeline_projection"]
+            timeline_proj = TimelineProjection(
+                rate_of_change=tp.get("rate_of_change", rate_str),
+                milestone_12_weeks=tp.get("milestone_12_weeks", timeline_proj.milestone_12_weeks),
+                milestone_24_weeks=tp.get("milestone_24_weeks", timeline_proj.milestone_24_weeks),
+            )
+        if parsed.get("key_coaching_directives") and isinstance(parsed["key_coaching_directives"], list):
+            directives = [str(d) for d in parsed["key_coaching_directives"] if d]
+    except Exception:
+        pass
+
+    calculated_metrics = {
+        "bmi": round(bmi, 1),
+        "bmr": round(macro_res.bmr),
+        "tdee": round(macro_res.tdee),
+        "target_kcal": round(macro_res.target_kcal),
+        "protein_g": round(macro_res.protein_g),
+        "carbs_g": round(macro_res.carbs_g),
+        "fat_g": round(macro_res.fat_g),
+        "lean_mass_kg": lean_mass_kg,
+        "somatotype": somatotype,
+        "goal": goal,
+        "experience_level": experience_level,
+    }
+
+    return AthleteBlueprintResponse(
+        athlete_archetype=default_archetype,
+        executive_summary=summary,
+        physiological_strengths=default_strengths,
+        blindspots_and_risks=default_risks,
+        volume_landmarks=volume_landmarks,
+        timeline_projection=timeline_proj,
+        key_coaching_directives=directives,
+        calculated_metrics=calculated_metrics,
+        sources=sources,
+    )

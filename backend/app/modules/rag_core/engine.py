@@ -207,7 +207,7 @@ class LLMClient(ABC):
     """Abstract interface for LLM calls supporting completion and token streaming."""
 
     @abstractmethod
-    def complete(self, messages: List[Dict[str, str]], system: str) -> str:
+    def complete(self, messages: List[Dict[str, str]], system: str, temperature: float = 1.0) -> str:
         pass
 
     @abstractmethod
@@ -223,7 +223,7 @@ class FakeLLMClient(LLMClient):
     def __init__(self, response_text: str = "This is a verified coach response [1]."):
         self.response_text = response_text
 
-    def complete(self, messages: List[Dict[str, str]], system: str) -> str:
+    def complete(self, messages: List[Dict[str, str]], system: str, temperature: float = 1.0) -> str:
         return self.response_text
 
     async def stream(
@@ -341,7 +341,7 @@ class GeminiLLMClient(LLMClient):
                 return
             yield model, remaining
 
-    def complete(self, messages: List[Dict[str, str]], system: str) -> str:
+    def complete(self, messages: List[Dict[str, str]], system: str, temperature: float = 1.0) -> str:
         self._ensure_key()
         full_prompt = self._build_prompt(messages, system)
         last_error: Optional[LLMUnavailableError] = None
@@ -350,7 +350,7 @@ class GeminiLLMClient(LLMClient):
             try:
                 client = self._get_client(model)
                 response = client.generate_content(
-                    full_prompt, request_options={"timeout": budget}
+                    full_prompt, generation_config={"temperature": max(0.0, min(2.0, temperature))}, request_options={"timeout": budget}
                 )
                 text = _response_text(response)
                 if text:

@@ -103,8 +103,8 @@ def change_password(session: Session, user: User, data: ChangePasswordRequest) -
 def delete_account(session: Session, user: User, password: str) -> None:
     """Permanently delete the account and every row of personal data it owns."""
     from app.modules.exercises.models import SavedRoutine
-    from app.modules.nutrition.models import MealLog
-    from app.modules.progressive_overload.models import WorkoutSet
+    from app.modules.nutrition.models import FoodLogEntry, MealLog
+    from app.modules.progressive_overload.models import DeloadRecord, WorkoutSet
     from app.modules.user.models import ChatMessage, ChatSession, UserProfile
 
     if not verify_password(password, user.password_hash):
@@ -115,6 +115,8 @@ def delete_account(session: Session, user: User, password: str) -> None:
     session_ids = select(ChatSession.id).where(ChatSession.user_id == user.id)
     session.exec(delete(ChatMessage).where(ChatMessage.session_id.in_(session_ids)))  # type: ignore[attr-defined]
     session.exec(delete(ChatSession).where(ChatSession.user_id == user.id))  # type: ignore[arg-type]
+    session.exec(delete(FoodLogEntry).where(FoodLogEntry.user_id == user.id))
+    session.exec(delete(DeloadRecord).where(DeloadRecord.user_id == user.id))
     session.exec(delete(WorkoutSet).where(WorkoutSet.user_id == user.id))  # type: ignore[arg-type]
     session.exec(delete(MealLog).where(MealLog.user_id == user.id))  # type: ignore[arg-type]
     session.exec(delete(SavedRoutine).where(SavedRoutine.user_id == user.id))  # type: ignore[arg-type]

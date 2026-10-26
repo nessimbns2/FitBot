@@ -14,15 +14,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '../context/ProfileContext';
-import {
-  calculateMacros,
-  getMealPlan,
-  askNutrition,
-  scanMealPhoto,
-  listMeals,
-  createMeal,
-  deleteMeal,
-} from '../api/client';
+import { calculateMacros, getMealPlan, askNutrition, scanMealPhoto } from '../api/client';
+import { FoodLogSection } from '../components/nutrition/FoodLogSection';
+import type { FoodLogDraft, MealSlotValue } from '../components/nutrition/FoodLogSection';
 import {
   PageHeader,
   Card,
@@ -91,35 +85,6 @@ interface MealPlanResponse {
   };
 }
 
-/** Meal diary row as returned by GET/POST /api/nutrition/meals. */
-interface ApiMeal {
-  id: number;
-  logged_on: string;
-  slot: string;
-  meal_name: string;
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-  food_items?: Array<{ name: string; portion_est: string; calories: number }> | null;
-  created_at: string;
-}
-
-interface LoggedMeal extends Omit<ApiMeal, 'food_items'> {
-  time: string;
-  food_items?: Array<{ name: string; portion_est: string; calories: number }>;
-}
-
-function toLoggedMeal(m: ApiMeal): LoggedMeal {
-  // created_at is UTC; show it in the viewer's local time.
-  const created = new Date(m.created_at.endsWith('Z') || m.created_at.includes('+') ? m.created_at : `${m.created_at}Z`);
-  return {
-    ...m,
-    food_items: m.food_items || undefined,
-    time: created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-  };
-}
-
 export function NutritionView() {
   const navigate = useNavigate();
   const { profile } = useProfile();
@@ -169,17 +134,10 @@ export function NutritionView() {
     coaching_tip?: string;
   } | null>(null);
 
-  // Logged meals for today (persisted per user in the database)
-  const [loggedMeals, setLoggedMeals] = useState<LoggedMeal[]>([]);
-  const [isSavingMeal, setIsSavingMeal] = useState<boolean>(false);
+  // A scanned meal waiting to be reviewed in the diary form (saved via the API, not the browser)
+  const [incomingDraft, setIncomingDraft] = useState<FoodLogDraft | null>(null);
 
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  useEffect(() => {
-    listMeals()
-      .then((rows: ApiMeal[]) => setLoggedMeals(rows.map(toLoggedMeal)))
-      .catch((err: any) => setToast({ type: 'error', message: err.message || 'Failed to load your meal diary' }));
-  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -319,46 +277,30 @@ export function NutritionView() {
     }
   };
 
-  const handleCommitLoggedMeal = async () => {
-    if (!scanResult || isSavingMeal) return;
-    setIsSavingMeal(true);
-    try {
-      const created: ApiMeal = await createMeal({
-        meal_name: scanResult.meal_name,
-        slot: targetMealSlot,
-        calories: scanResult.total_calories,
-        protein_g: scanResult.protein_g,
-        carbs_g: scanResult.carbs_g,
-        fat_g: scanResult.fat_g,
-        food_items: scanResult.food_items.map((f) => ({
-          name: f.name,
-          portion_est: f.portion_est,
-          calories: f.calories,
-        })),
-      });
-      setLoggedMeals((prev) => [toLoggedMeal(created), ...prev]);
-      setToast({
-        type: 'success',
-        message: `Logged ${scanResult.meal_name} to today's nutrition diary!`,
-      });
-      setIsScannerOpen(false);
-      setScannedImage(null);
-      setScanResult(null);
-    } catch (err: any) {
-      setToast({ type: 'error', message: err.message || 'Could not save this meal' });
-    } finally {
-      setIsSavingMeal(false);
-    }
+  const SCAN_SLOT_TO_DIARY: Record<string, MealSlotValue> = {
+    Breakfast: 'breakfast',
+    Lunch: 'lunch',
+    Dinner: 'dinner',
+    'Post-Workout': 'post_workout',
   };
 
-  const handleDeleteLoggedMeal = async (id: number) => {
-    try {
-      await deleteMeal(id);
-      setLoggedMeals((prev) => prev.filter((m) => m.id !== id));
-      setToast({ type: 'success', message: 'Meal entry removed.' });
-    } catch (err: any) {
-      setToast({ type: 'error', message: err.message || 'Could not delete this meal' });
-    }
+  // The AI's guess is not saved directly: it opens the diary form so it can be checked and corrected.
+  const handleCommitLoggedMeal = () => {
+    if (!scanResult) return;
+    const items = (scanResult.food_items || []).map((f) => `${f.name} (${f.portion_est})`).join(', ');
+    setIncomingDraft({
+      name: scanResult.meal_name,
+      meal_slot: SCAN_SLOT_TO_DIARY[targetMealSlot] || 'snack',
+      calories: scanResult.total_calories,
+      protein_g: scanResult.protein_g,
+      carbs_g: scanResult.carbs_g,
+      fat_g: scanResult.fat_g,
+      notes: items.slice(0, 500),
+      source: 'photo_scan',
+    });
+    setIsScannerOpen(false);
+    setScannedImage(null);
+    setScanResult(null);
   };
 
   // Macro Donut Segments
@@ -686,141 +628,17 @@ export function NutritionView() {
           ) : null}
         </Card>
 
-        {/* Today's Scanned & Logged Meals Section */}
-        <Card
-          title="Today's Logged Meals & Food Scans"
-          subtitle="Instant plate recognition via Gemini Vision. Track your daily nutritional intake meal by meal."
-          action={
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => {
-                setIsScannerOpen(true);
-                setScanResult(null);
-                setScannedImage(null);
-              }}
-              leftIcon={<Camera className="w-3.5 h-3.5" />}
-            >
-              Scan New Meal
-            </Button>
-          }
-        >
-          {loggedMeals.length === 0 ? (
-            <div className="py-8 px-4 text-center border-2 border-dashed border-[var(--border-subtle)] rounded-2xl bg-[var(--bg-subtle)]/30 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-[var(--accent-primary-subtle)] text-[var(--accent-text)] mx-auto flex items-center justify-center">
-                <Utensils className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-[var(--text-primary)]">No Meals Logged Yet Today</h4>
-                <p className="text-xs text-[var(--text-muted)] mt-1 max-w-sm mx-auto">
-                  Snap or upload a photo of your plate to auto-extract calories, protein, carbs, and fats.
-                </p>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setIsScannerOpen(true);
-                  setScanResult(null);
-                  setScannedImage(null);
-                }}
-                leftIcon={<Camera className="w-3.5 h-3.5" />}
-              >
-                Scan First Meal
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Daily Logged Sums */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">Total Logged</span>
-                  <span className="text-sm font-black text-[var(--text-primary)] font-sans tabular-nums">
-                    {loggedMeals.reduce((acc, m) => acc + (m.calories || 0), 0)} <span className="text-[10px] font-normal text-[var(--text-muted)]">kcal</span>
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--macro-protein-text)] block">Protein</span>
-                  <span className="text-sm font-black text-[var(--macro-protein-text)] font-sans tabular-nums">
-                    {Math.round(loggedMeals.reduce((acc, m) => acc + (m.protein_g || 0), 0))}g
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--macro-carbs-text)] block">Carbs</span>
-                  <span className="text-sm font-black text-[var(--macro-carbs-text)] font-sans tabular-nums">
-                    {Math.round(loggedMeals.reduce((acc, m) => acc + (m.carbs_g || 0), 0))}g
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--macro-fat-text)] block">Fat</span>
-                  <span className="text-sm font-black text-[var(--macro-fat-text)] font-sans tabular-nums">
-                    {Math.round(loggedMeals.reduce((acc, m) => acc + (m.fat_g || 0), 0))}g
-                  </span>
-                </div>
-              </div>
-
-              {/* Logged Meal Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {loggedMeals.map((meal) => (
-                  <div
-                    key={meal.id}
-                    className="p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-subtle)] hover:border-[var(--border-prominent)] shadow-xs transition-all space-y-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-[var(--accent-text)] uppercase tracking-wider">
-                            {meal.slot}
-                          </span>
-                          <span className="text-[11px] text-[var(--text-muted)] font-mono">
-                            {meal.time}
-                          </span>
-                        </div>
-                        <h4 className="text-sm font-bold text-[var(--text-primary)] mt-0.5 truncate" title={meal.meal_name}>
-                          {meal.meal_name}
-                        </h4>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteLoggedMeal(meal.id)}
-                        className="text-[var(--text-muted)] hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
-                        title="Delete meal entry"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    {/* Calories & Macros Row */}
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-[var(--border-subtle)]">
-                      <span className="text-sm font-black text-[var(--text-primary)] font-sans tabular-nums">
-                        {meal.calories} <span className="text-[10px] font-normal text-[var(--text-muted)]">kcal</span>
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <Badge variant="protein" size="sm">P: {Math.round(meal.protein_g)}g</Badge>
-                        <Badge variant="carbs" size="sm">C: {Math.round(meal.carbs_g)}g</Badge>
-                        <Badge variant="fat" size="sm">F: {Math.round(meal.fat_g)}g</Badge>
-                      </div>
-                    </div>
-
-                    {/* Food Items Pills */}
-                    {meal.food_items && meal.food_items.length > 0 && (
-                      <div className="pt-2 flex flex-wrap gap-1.5">
-                        {meal.food_items.map((item, fIdx) => (
-                          <span
-                            key={fIdx}
-                            className="px-2 py-0.5 rounded-lg text-[10px] bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border-subtle)]"
-                          >
-                            {item.name} ({item.portion_est})
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Card>
+        {/* Today's Food Diary (database-backed) */}
+        <FoodLogSection
+          onScanClick={() => {
+            setIsScannerOpen(true);
+            setScanResult(null);
+            setScannedImage(null);
+          }}
+          incomingDraft={incomingDraft}
+          onDraftHandled={() => setIncomingDraft(null)}
+          onNotify={(type, message) => setToast({ type, message })}
+        />
       </div>
 
       {/* AI Meal Scanner Modal Dialog */}
@@ -1042,10 +860,9 @@ export function NutritionView() {
                     variant="primary"
                     size="sm"
                     onClick={handleCommitLoggedMeal}
-                    isLoading={isSavingMeal}
                     leftIcon={<Plus className="w-3.5 h-3.5" />}
                   >
-                    Add to Today's Diary
+                    Review &amp; Add to Diary
                   </Button>
                 </div>
               </div>

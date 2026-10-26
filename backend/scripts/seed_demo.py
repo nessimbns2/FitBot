@@ -23,7 +23,7 @@ from app.modules.auth.service import delete_account, register_user  # noqa: E402
 from app.modules.exercises.catalog import Equipment, load_catalog  # noqa: E402
 from app.modules.exercises.generator import SplitType, generate_routine  # noqa: E402
 from app.modules.exercises.models import SavedRoutine  # noqa: E402
-from app.modules.nutrition.models import MealLog  # noqa: E402
+from app.modules.nutrition.models import FoodLogEntry, MealSlotName  # noqa: E402
 from app.modules.progressive_overload.models import WorkoutSet  # noqa: E402
 from app.modules.user.models import (  # noqa: E402
     ActivityLevel,
@@ -111,7 +111,7 @@ def main() -> None:
             ("Breakfast", "Oats, banana & whey", 520, 38, 72, 9),
             ("Lunch", "Grilled chicken, rice & salad", 690, 52, 78, 16),
         ]:
-            session.add(MealLog(user_id=uid, slot=slot, meal_name=name, calories=kcal, protein_g=p, carbs_g=c, fat_g=f))
+            session.add(FoodLogEntry(user_id=uid, log_date=now.date(), meal_slot=MealSlotName(slot.lower()), name=name, calories=kcal, protein_g=p, carbs_g=c, fat_g=f))
 
         session.commit()
 

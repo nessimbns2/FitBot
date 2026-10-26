@@ -15,11 +15,18 @@ from app.core.database import get_session
 from app.modules.auth.dependencies import CurrentUser
 from app.modules.progressive_overload.algorithms import Recommendation
 from app.modules.progressive_overload.models import (
+    ApplyDeloadRequest,
+    CancelDeloadRequest,
+    DeloadRecordRead,
+    DiagnosisRequest,
     SessionGroup,
     WorkoutSetCreate,
     WorkoutSetRead,
 )
 from app.modules.progressive_overload.service import (
+    apply_deload,
+    cancel_deload,
+    get_diagnosis,
     get_history,
     get_recommendation,
     get_weekly_volume_summary,
@@ -140,3 +147,60 @@ def get_volume(
 ) -> Dict[str, Any]:
     """Calculate effective weekly sets (RPE >= 6.0) per muscle group with in_range status."""
     return get_weekly_volume_summary(session, week_start=week_start, user_id=user.id)
+
+
+@router.post(
+    "/diagnosis",
+    summary="Get fatigue & plateau diagnosis, coach explanation, and approved strategies",
+)
+def get_diagnosis_endpoint(
+    payload: DiagnosisRequest,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> Dict[str, Any]:
+    """Analyse workout history, retrieve category-isolated RAG passages, and generate coach explanation (read-only)."""
+    return get_diagnosis(
+        db=session,
+        exercise_id=payload.exercise_id,
+        user_id=user.id,
+        experience_level=payload.experience_level,
+        volume_count=payload.volume_count,
+        unit=payload.unit,
+    )
+
+
+@router.post(
+    "/apply-deload",
+    response_model=DeloadRecordRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Apply and persist a deload prescription",
+)
+def apply_deload_endpoint(
+    payload: ApplyDeloadRequest,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> DeloadRecordRead:
+    """Recompute prescription server-side and persist active deload record."""
+    return apply_deload(
+        db=session,
+        request=payload,
+        user_id=user.id,
+    )
+
+
+@router.post(
+    "/cancel-deload",
+    response_model=DeloadRecordRead,
+    summary="Cancel an active deload prescription",
+)
+def cancel_deload_endpoint(
+    payload: CancelDeloadRequest,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> DeloadRecordRead:
+    """Mark an active deload record as cancelled."""
+    return cancel_deload(
+        db=session,
+        request=payload,
+        user_id=user.id,
+    )

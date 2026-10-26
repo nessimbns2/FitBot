@@ -38,6 +38,19 @@ function handleUnauthorized() {
   window.dispatchEvent(new Event('fitbot:unauthorized'));
 }
 
+// FastAPI sends validation errors (422) as a list of {loc, msg}; turn them into text.
+function formatErrorDetail(detail) {
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => {
+        const field = Array.isArray(d.loc) ? d.loc.filter((part) => part !== 'body').join('.') : '';
+        return field ? `${field}: ${d.msg}` : d.msg;
+      })
+      .join('; ');
+  }
+  return detail;
+}
+
 async function request(endpoint, options = {}) {
   const { auth = true, ...fetchOptions } = options;
   const url = `${API_BASE}${endpoint}`;
@@ -65,13 +78,8 @@ async function request(endpoint, options = {}) {
     let errorDetail = 'API request failed';
     try {
       const errorData = await response.json();
-      const detail = errorData.detail ?? errorData.message ?? errorData.error;
-      if (Array.isArray(detail)) {
-        // FastAPI validation errors: [{loc, msg}, ...]
-        errorDetail = detail.map((d) => String(d.msg || d).replace(/^Value error, /, '')).join(' ');
-      } else {
-        errorDetail = typeof detail === 'string' ? detail : JSON.stringify(errorData);
-      }
+      const detail = formatErrorDetail(errorData.detail ?? errorData.message ?? errorData.error);
+      errorDetail = typeof detail === 'string' && detail ? detail : JSON.stringify(errorData);
     } catch {
       errorDetail = `HTTP ${response.status}: ${response.statusText}`;
     }
@@ -149,6 +157,13 @@ export async function predictSomatotype(data) {
   return request('/api/user/predict-somatotype', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export async function getAthleteBlueprint(overrides = {}) {
+  return request('/api/user/blueprint', {
+    method: 'POST',
+    body: JSON.stringify(overrides),
   });
 }
 
@@ -236,6 +251,43 @@ export async function deleteSavedRoutine() {
   return request('/api/exercises/routine', { method: 'DELETE' });
 }
 
+// ── Nutrition: food log (diary) ───────────────────────────────────────────────
+
+export async function listFoodLog(date = null) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return request(`/api/nutrition/log${query}`);
+}
+
+export async function getDailySummary(date = null) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return request(`/api/nutrition/log/summary${query}`);
+}
+
+export async function createFoodLogEntry(data) {
+  return request('/api/nutrition/log', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateFoodLogEntry(entryId, data) {
+  return request(`/api/nutrition/log/${entryId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteFoodLogEntry(entryId) {
+  return request(`/api/nutrition/log/${entryId}`, { method: 'DELETE' });
+}
+
+export async function suggestMeal(data = {}) {
+  return request('/api/nutrition/suggest-meal', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 // ── Exercises ─────────────────────────────────────────────────────────────────
 
 export async function getCatalogExercises(filters = {}) {
@@ -302,6 +354,27 @@ export async function getRecommendation(exerciseId, algorithm = 'double') {
 export async function getWeeklyVolume(weekStart = null) {
   const url = weekStart ? `/api/overload/volume?week_start=${weekStart}` : '/api/overload/volume';
   return request(url);
+}
+
+export async function getPlateauDiagnosis(exerciseId, options = {}) {
+  return request('/api/overload/diagnosis', {
+    method: 'POST',
+    body: JSON.stringify({ exercise_id: exerciseId, ...options }),
+  });
+}
+
+export async function applyDeload(exerciseId, options = {}) {
+  return request('/api/overload/apply-deload', {
+    method: 'POST',
+    body: JSON.stringify({ exercise_id: exerciseId, ...options }),
+  });
+}
+
+export async function cancelDeload(deloadRecordId, reason = null) {
+  return request('/api/overload/cancel-deload', {
+    method: 'POST',
+    body: JSON.stringify({ deload_record_id: deloadRecordId, reason }),
+  });
 }
 
 // ── Chat & Streaming ──────────────────────────────────────────────────────────

@@ -34,7 +34,9 @@ défini dans `backend/scripts/seed_demo.py` (`DEMO_EMAIL` / `DEMO_PASSWORD`). Il
 | `chat_session` | Conversations avec le coach IA | FK `user_id → users.id` |
 | `chat_message` | Messages (`user` / `assistant`) + sources RAG (JSON) | FK `session_id → chat_session.id` |
 | `workout_sets` | Séries enregistrées (reps, charge, RPE/RIR) pour la surcharge progressive | FK `user_id → users.id` |
-| `meal_logs` | Journal alimentaire (avant : `localStorage`) | FK `user_id → users.id` |
+| `meal_logs` | Ancien journal conservé pour la compatibilité de l'API `/meals` | FK `user_id → users.id` |
+| `food_log_entries` | Journal alimentaire détaillé : saisie, édition, photo et suggestions IA | FK `user_id → users.id` |
+| `deload_records` | Prescriptions de récupération et historique du diagnostic de plateau | FK `user_id → users.id` |
 | `saved_routines` | Programme suivi (JSON), 1 par compte (avant : `localStorage`) | FK `user_id → users.id` (unique) |
 
 * Toutes les clés étrangères sont en `ON DELETE CASCADE` : supprimer un compte efface toutes ses données
@@ -43,6 +45,10 @@ défini dans `backend/scripts/seed_demo.py` (`DEMO_EMAIL` / `DEMO_PASSWORD`). Il
   reps 1–100, etc.) protègent la cohérence des données au niveau de la base.
 * Chaque requête API filtre par `user_id` du jeton JWT : un utilisateur ne peut ni lire ni modifier les
   données d'un autre. La ressource d'un autre compte renvoie 404, pas 403, pour ne pas révéler qu'elle existe.
+
+La migration `e3c2b8d5f0a1` intègre les fonctionnalités du `main` distant. Elle copie les repas
+existants de `meal_logs` vers `food_log_entries`, avec leur propriétaire et leur date,
+sans supprimer les anciennes entrées. L'interface Nutrition utilise désormais `/api/nutrition/log`.
 
 ```
 users 1───1 user_profile
