@@ -1,8 +1,19 @@
 """
 backend/app/prompts/vision.py
 Multimodal prompt templates for AI Vision analysis (e.g. food plate macro logging).
+
+Team Member: Hamza
+Module: Nutrition Module
+Functionality: Computer vision plate scanning, portion estimation, and macronutrient decomposition.
 """
 
+# ==============================================================================
+# DEVELOPER: Hamza
+# MODULE: Nutrition Module
+# FUNCTIONALITY: Multimodal prompt for Gemini Vision to analyze food plate photos,
+#                identify meal components, estimate portion weights, and return
+#                structured nutritional data (calories, protein, carbs, fat).
+# ==============================================================================
 MEAL_SCAN_VISION_PROMPT = """You are an elite sports nutritionist and computer vision food analyst.
 Analyze this meal image{meal_slot_context}.
 Identify each distinct food item on the plate, estimate realistic portion sizes (in grams or standard units), and calculate calories and macronutrients (protein, carbohydrates, dietary fat).

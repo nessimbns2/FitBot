@@ -1,8 +1,19 @@
 """
 backend/app/prompts/coach.py
 Prompt templates, persona definition, and safety disclaimers for the RAG Coach.
+
+Module Ownership Breakdown:
+- RAG Core / Athlete Profile Module: Nessim (Coach Persona, Safety Disclaimer, Exercise Technique, Workout Logging, General Coaching, Intent Mapping)
+- Nutrition Module: Hamza (Nutrition Coaching Prompt Template)
+- Progressive Overload Module: Mahdi (Progressive Overload & Deload Prompt Template)
 """
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: RAG Core / Athlete Profile Module
+# FUNCTIONALITY: Base persona definition establishing FitBot's evidence-based,
+#                scientific coaching tone and privacy guardrails.
+# ==============================================================================
 COACH_PERSONA = (
     "You are FitBot, an expert evidence-based fitness coach. You combine exact math "
     "with verified guidelines from authoritative training and nutrition literature.\n"
@@ -11,12 +22,24 @@ COACH_PERSONA = (
     "replaced by placeholders such as [name] or [email]: never repeat or guess them.\n"
 )
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: RAG Core / Athlete Profile Module
+# FUNCTIONALITY: Mandatory legal and medical educational disclaimer appended to
+#                coaching responses.
+# ==============================================================================
 SAFETY_DISCLAIMER = (
     "Important Note: This coaching guidance is general educational information and does not "
     "constitute medical or diagnostic advice. Always consult a physician or physical therapist "
     "before starting any extreme diet or vigorous exercise program if you have health conditions."
 )
 
+# ==============================================================================
+# DEVELOPER: Hamza
+# MODULE: Nutrition Module
+# FUNCTIONALITY: RAG prompt for answering user dietary, macronutrient, and caloric
+#                inquiries with exact mathematical grounding and literature context.
+# ==============================================================================
 NUTRITION_PROMPT_TEMPLATE = """{persona}
 INTENT: Nutrition Coaching & Guidance
 
@@ -37,6 +60,12 @@ RULES:
 5. Always include this note: '{safety_note}'
 """
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: RAG Core / Athlete Profile Module
+# FUNCTIONALITY: RAG prompt for exercise form, biomechanical setup, movement cues,
+#                and injury safety guidance.
+# ==============================================================================
 EXERCISE_TECHNIQUE_PROMPT_TEMPLATE = """{persona}
 INTENT: Exercise Technique & Form Advice
 
@@ -55,6 +84,12 @@ RULES:
 6. Always include this note: '{safety_note}'
 """
 
+# ==============================================================================
+# DEVELOPER: Mahdi
+# MODULE: Progressive Overload Module
+# FUNCTIONALITY: RAG prompt for advising users on progressive overload, double
+#                progression protocols, rep/load increases, and deload/plateau handling.
+# ==============================================================================
 OVERLOAD_ADVICE_PROMPT_TEMPLATE = """{persona}
 INTENT: Progressive Overload & Progression Strategy
 
@@ -75,6 +110,12 @@ RULES:
 5. Always include this note: '{safety_note}'
 """
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: RAG Core / Athlete Profile Module
+# FUNCTIONALITY: Conversational prompt confirming logged exercise sets, reps,
+#                weights, and encouraging user consistency.
+# ==============================================================================
 WORKOUT_LOGGING_PROMPT_TEMPLATE = """{persona}
 INTENT: Workout Logging Confirmation
 
@@ -87,6 +128,12 @@ RULES:
 3. Do not invent fake sets.
 """
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: RAG Core / Athlete Profile Module
+# FUNCTIONALITY: Fallback RAG prompt for general training, recovery, and fitness
+#                questions grounded in verified sports literature.
+# ==============================================================================
 GENERAL_PROMPT_TEMPLATE = """{persona}
 INTENT: General Coaching & Health Inquiries
 
@@ -104,10 +151,16 @@ RULES:
 5. Always include this note: '{safety_note}'
 """
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: RAG Core / Athlete Profile Module
+# FUNCTIONALITY: Intent-to-prompt dispatch dictionary routing classified intents
+#                to their respective specialized prompt templates.
+# ==============================================================================
 INTENT_PROMPT_MAP = {
-    "nutrition": NUTRITION_PROMPT_TEMPLATE,
-    "exercise_technique": EXERCISE_TECHNIQUE_PROMPT_TEMPLATE,
-    "workout_logging": WORKOUT_LOGGING_PROMPT_TEMPLATE,
-    "overload_advice": OVERLOAD_ADVICE_PROMPT_TEMPLATE,
-    "general": GENERAL_PROMPT_TEMPLATE,
+    "nutrition": NUTRITION_PROMPT_TEMPLATE,               # Hamza (Nutrition)
+    "exercise_technique": EXERCISE_TECHNIQUE_PROMPT_TEMPLATE,  # Nessim (RAG Core)
+    "workout_logging": WORKOUT_LOGGING_PROMPT_TEMPLATE,        # Nessim (RAG Core)
+    "overload_advice": OVERLOAD_ADVICE_PROMPT_TEMPLATE,        # Mahdi (Progressive Overload)
+    "general": GENERAL_PROMPT_TEMPLATE,                        # Nessim (RAG Core)
 }

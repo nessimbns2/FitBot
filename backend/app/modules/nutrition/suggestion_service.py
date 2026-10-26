@@ -35,6 +35,12 @@ MIN_KCAL_TO_SUGGEST = 150.0   # below this there is no room for a meal
 MAX_SUGGESTIONS = 3
 MAX_ITEM_KCAL = 3000.0        # sanity cap on one suggested meal
 
+# ==============================================================================
+# DEVELOPER: Hamza
+# MODULE: Nutrition Module
+# FUNCTIONALITY: System prompt for AI meal suggestions recommending up to 3 meals
+#                or snacks that fit remaining daily calories and protein targets.
+# ==============================================================================
 SYSTEM_PROMPT = """You are a sports-nutrition assistant inside a fitness app.
 The user wants ideas for what to eat for the rest of today.
 

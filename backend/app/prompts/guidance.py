@@ -1,16 +1,34 @@
 """
 backend/app/prompts/guidance.py
 Prompt templates for somatotype and body type guidance, and the AI Somatotype Predictor.
+
+Team Member: Nessim
+Module: Athlete Profile Module
+Functionality: Somatotype classification (Heath-Carter method), anthropometric assessment,
+               and AI Athlete Blueprint generation.
 """
 
 from typing import Any, Dict, List
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: Athlete Profile Module
+# FUNCTIONALITY: User query templates for quick somatotype-specific training and
+#                nutrition advice summaries.
+# ==============================================================================
 SOMATOTYPE_EXERCISE_USER_TEMPLATE = "Summarize key training advice for an {somatotype}."
 
 SOMATOTYPE_NUTRITION_USER_TEMPLATE = "Summarize key nutrition and macronutrient advice for an {somatotype}."
 
 # ── AI Somatotype Prediction Prompts ──────────────────────────────────────────
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: Athlete Profile Module
+# FUNCTIONALITY: System prompt for LLM anthropometric assessment to classify user
+#                into ectomorph, mesomorph, or endomorph with confidence score
+#                and actionable traits summary.
+# ==============================================================================
 SOMATOTYPE_PREDICTION_SYSTEM_PROMPT = """You are an expert sports scientist and anthropometry coach specializing in the Heath-Carter Somatotype method.
 Analyze the user's answers to the somatotype diagnostic assessment.
 Determine whether their primary physiological somatotype is 'ectomorph', 'mesomorph', or 'endomorph'.
@@ -25,6 +43,12 @@ Return ONLY a valid JSON object matching this schema exactly (no markdown format
   "nutrition_focus": "Key nutritional strategy and macronutrient adaptation (e.g. high carb tolerance vs carb moderation with healthy fats)."
 }"""
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: Athlete Profile Module
+# FUNCTIONALITY: Formatted user response prompt delivering the user's 5 physical
+#                assessment answers to the classifier.
+# ==============================================================================
 SOMATOTYPE_PREDICTION_USER_TEMPLATE = """User Anthropometric Assessment Responses:
 1. Wrist & Bone Structure: {wrist_structure}
 2. Natural Frame & Silhouette: {body_frame}
@@ -36,6 +60,12 @@ Based on these validated physiological markers, determine the user's primary som
 
 # ── Validated Somatotype Diagnostic Questions ──────────────────────────────────
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: Athlete Profile Module
+# FUNCTIONALITY: Heath-Carter validated anthropometric quiz question bank with
+#                archetype weights for diagnostic assessment.
+# ==============================================================================
 SOMATOTYPE_QUESTIONS: List[Dict[str, Any]] = [
     {
         "id": "wrist_structure",
@@ -166,6 +196,13 @@ SOMATOTYPE_QUESTIONS: List[Dict[str, Any]] = [
 
 # ── AI Athlete Blueprint & Profile Audit Prompts ─────────────────────────────
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: Athlete Profile Module
+# FUNCTIONALITY: System prompt for generating the comprehensive AI Athlete
+#                Blueprint synthesizing biometrics, volume landmarks (MEV/MRV),
+#                progression timeline, and plain-language action steps.
+# ==============================================================================
 ATHLETE_BLUEPRINT_SYSTEM_PROMPT = """You are a friendly, encouraging fitness coach and sports scientist.
 You are generating a personalized Athlete AI Blueprint & Body Audit.
 
@@ -205,6 +242,12 @@ Return ONLY a valid JSON object matching this schema exactly (no markdown format
   ]
 }"""
 
+# ==============================================================================
+# DEVELOPER: Nessim
+# MODULE: Athlete Profile Module
+# FUNCTIONALITY: User prompt formatting complete user biometrics, energy targets,
+#                macronutrient splits, and retrieved sports science context.
+# ==============================================================================
 ATHLETE_BLUEPRINT_USER_TEMPLATE = """ATHLETE BIOMETRICS & AUDIT PROFILE:
 - Age: {age} | Sex: {sex}
 - Height: {height_cm} cm | Weight: {weight_kg} kg | BMI: {bmi:.1f}
