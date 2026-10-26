@@ -5,6 +5,13 @@ uvicorn[standard]==0.34.3
 # ── Database ──────────────────────────────────────────────────────────────────
 sqlmodel==0.0.22
 pydantic-settings==2.8.1
+psycopg[binary]==3.2.13      # PostgreSQL driver (DATABASE_URL=postgresql+psycopg://…)
+alembic==1.20.1              # schema migrations (alembic upgrade head)
+
+# ── Authentication ────────────────────────────────────────────────────────────
+pyjwt==2.10.1                # signed JWT access tokens
+bcrypt==4.3.0                # password hashing
+email-validator==2.2.0       # EmailStr validation on register/login
 
 # ── RAG / Embeddings ──────────────────────────────────────────────────────────
 faiss-cpu==1.10.0
@@ -20,5 +27,6 @@ slowapi>=0.1.9
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 pytest==8.3.5
+pytest-cov>=5.0
 httpx==0.28.1
 

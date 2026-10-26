@@ -67,9 +67,9 @@ def _resolve(field_value, profile_value):
     return field_value if field_value is not None else profile_value
 
 
-def calculate_macros(request: MacroRequest, session: Session) -> MacroResult:
-    """Calculate macros, merging request overrides with the stored profile."""
-    profile = user_svc.get_or_create_default_profile(session)
+def calculate_macros(request: MacroRequest, session: Session, user_id: int) -> MacroResult:
+    """Calculate macros, merging request overrides with the user's stored profile."""
+    profile = user_svc.get_or_create_profile(session, user_id)
 
     sex = _resolve(request.sex, profile.sex.value)
     age = _resolve(request.age, profile.age)

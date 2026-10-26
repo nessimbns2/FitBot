@@ -210,8 +210,8 @@ def test_parse_logged_sets_no_database_write():
     assert action.sets[0].rir == 2
 
 
-def test_context_enrichment_includes_numbers(session):
-    enriched = enrich("nutrition", "What are my macros?", session=session)
+def test_context_enrichment_includes_numbers(session, test_user):
+    enriched = enrich("nutrition", "What are my macros?", session=session, user_id=test_user.id)
     assert enriched.retrieval_category == "nutrition"
     assert "Target Calories" in enriched.numbers
     assert "Protein:" in enriched.numbers

@@ -26,6 +26,7 @@ import {
   getRecommendation,
   getWeeklyVolume,
   logWorkoutSet,
+  getSavedRoutine,
 } from '../api/client';
 import {
   PageHeader,
@@ -96,25 +97,27 @@ interface SessionHistoryItem {
 
 export function TrackerView() {
   const location = useLocation();
+  // Exercises of day 1 of the user's saved routine (from the database)
+  const [routineExercises, setRoutineExercises] = useState<string[]>([]);
+  useEffect(() => {
+    getSavedRoutine()
+      .then((saved: { routine?: { days?: Array<{ exercises?: Array<{ exercise_id: string }> }> } } | null) => {
+        const firstDay = saved?.routine?.days?.[0]?.exercises;
+        if (firstDay) setRoutineExercises(firstDay.map((e) => e.exercise_id));
+      })
+      .catch(() => undefined);
+  }, []);
+
   const preloadedExercises: string[] = useMemo(() => {
     if (location.state?.preloadedExercises && location.state.preloadedExercises.length > 0) {
       return location.state.preloadedExercises;
     }
-    try {
-      const saved = localStorage.getItem('fitbot_saved_routine');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.days && parsed.days[0]?.exercises) {
-          return parsed.days[0].exercises.map((e: any) => e.exercise_id);
-        }
-      }
-    } catch (e) {}
-    return [];
-  }, [location.state]);
+    return routineExercises;
+  }, [location.state, routineExercises]);
 
   const [exercises, setExercises] = useState<CatalogExercise[]>([]);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string>(
-    () => preloadedExercises[0] || 'barbell-bench-press'
+    () => location.state?.preloadedExercises?.[0] || 'barbell-bench-press'
   );
   const [unit, setUnit] = useState<'kg' | 'lb'>('kg');
 

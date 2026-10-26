@@ -10,7 +10,9 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useProfile, UserProfile } from '../context/ProfileContext';
+import { AccountSettings } from '../components/AccountSettings';
 import {
   PageHeader,
   Card,
@@ -135,6 +137,10 @@ export function ProfileView() {
   // Somatotype diagnostic quiz modal state
   const [showSomatotypeQuiz, setShowSomatotypeQuiz] = useState(false);
 
+  // Right after sign-up the register page sends { welcome: true }: open the onboarding wizard.
+  const location = useLocation();
+  const isNewAccount = Boolean((location.state as { welcome?: boolean } | null)?.welcome);
+
   useEffect(() => {
     if (profile) {
       const data: Partial<UserProfile> = {
@@ -153,11 +159,11 @@ export function ProfileView() {
       setInitialData(data);
       setUnitMode(data.unit_system || 'metric');
 
-      if (needsOnboarding) {
+      if (needsOnboarding || isNewAccount) {
         setShowWizard(true);
       }
     }
-  }, [profile, needsOnboarding]);
+  }, [profile, needsOnboarding, isNewAccount]);
 
   const handleChange = <K extends keyof UserProfile>(field: K, value: UserProfile[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -612,6 +618,8 @@ export function ProfileView() {
             </Card>
           </div>
         </form>
+
+        <AccountSettings notify={(type, message) => setToast({ type, message })} />
 
         {/* Floating Dirty-State Save Bar (Safe from Mobile Tab Bar) */}
         {isDirty && (

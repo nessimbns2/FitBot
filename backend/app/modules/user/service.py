@@ -31,25 +31,23 @@ from app.prompts import (
     SOMATOTYPE_QUESTIONS,
 )
 
-# ── Single local user ─────────────────────────────────────────────────────────
-
-DEFAULT_USER_ID = 1
+# ── Profile (one per authenticated user) ─────────────────────────────────────
 
 
-def get_or_create_default_profile(session: Session) -> UserProfile:
-    """Return the single local user profile, creating it on first call."""
-    profile = session.get(UserProfile, DEFAULT_USER_ID)
+def get_or_create_profile(session: Session, user_id: int) -> UserProfile:
+    """Return the user's profile, creating it with defaults on first call."""
+    profile = session.exec(select(UserProfile).where(UserProfile.user_id == user_id)).first()
     if profile is None:
-        profile = UserProfile(id=DEFAULT_USER_ID)
+        profile = UserProfile(user_id=user_id)
         session.add(profile)
         session.commit()
         session.refresh(profile)
     return profile
 
 
-def update_profile(session: Session, data: UserProfileUpdate) -> UserProfile:
-    """Apply a partial update to the user profile."""
-    profile = get_or_create_default_profile(session)
+def update_profile(session: Session, user_id: int, data: UserProfileUpdate) -> UserProfile:
+    """Apply a partial update to the user's profile."""
+    profile = get_or_create_profile(session, user_id)
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(profile, key, value)
@@ -63,21 +61,20 @@ def update_profile(session: Session, data: UserProfileUpdate) -> UserProfile:
 # ── Chat Sessions ─────────────────────────────────────────────────────────────
 
 
-def create_session(session: Session, title: str = "New conversation") -> ChatSession:
-    """Create a new chat session for the default user."""
-    profile = get_or_create_default_profile(session)
-    chat_session = ChatSession(user_id=profile.id, title=title)
+def create_session(session: Session, user_id: int, title: str = "New conversation") -> ChatSession:
+    """Create a new chat session owned by the user."""
+    chat_session = ChatSession(user_id=user_id, title=title[:200])
     session.add(chat_session)
     session.commit()
     session.refresh(chat_session)
     return chat_session
 
 
-def list_sessions(session: Session) -> list[SessionSummary]:
-    """Return all sessions newest first."""
+def list_sessions(session: Session, user_id: int) -> list[SessionSummary]:
+    """Return the user's sessions newest first."""
     stmt = (
         select(ChatSession)
-        .where(ChatSession.user_id == DEFAULT_USER_ID)
+        .where(ChatSession.user_id == user_id)
         .order_by(ChatSession.updated_at.desc())  # type: ignore[arg-type]
     )
     sessions = session.exec(stmt).all()
@@ -92,34 +89,49 @@ def list_sessions(session: Session) -> list[SessionSummary]:
     ]
 
 
-def get_session_or_404(session: Session, session_id: str) -> ChatSession:
+def get_session_or_404(session: Session, session_id: str, user_id: int) -> ChatSession:
+    """Return the session if it exists AND belongs to the user (404 otherwise, no existence leak)."""
     chat_session = session.get(ChatSession, session_id)
-    if chat_session is None:
+    if chat_session is None or chat_session.user_id != user_id:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
     return chat_session
 
 
-def get_session_messages(session: Session, session_id: str) -> list[MessageRead]:
+def get_session_messages(session: Session, session_id: str, user_id: int) -> list[MessageRead]:
     """Return all messages for a session in chronological order."""
-    get_session_or_404(session, session_id)
+    get_session_or_404(session, session_id, user_id)
     stmt = (
         select(ChatMessage)
         .where(ChatMessage.session_id == session_id)
-        .order_by(ChatMessage.created_at)  # type: ignore[arg-type]
+        .order_by(ChatMessage.created_at, ChatMessage.id)  # type: ignore[arg-type]
     )
     messages = session.exec(stmt).all()
     return [MessageRead.model_validate(m, from_attributes=True) for m in messages]
 
 
+def get_recent_history(session: Session, session_id: str, limit: int = 6) -> list[dict]:
+    """Return the last `limit` messages of a session as LLM-ready {role, content} dicts."""
+    stmt = (
+        select(ChatMessage)
+        .where(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())  # type: ignore[union-attr]
+        .limit(limit)
+    )
+    rows = list(session.exec(stmt).all())
+    rows.reverse()
+    return [{"role": m.role, "content": m.content} for m in rows]
+
+
 def append_message(
     session: Session,
     session_id: str,
+    user_id: int,
     role: str,
     content: str,
     sources: list | None = None,
 ) -> ChatMessage:
     """Add a message to a session and update the session's updated_at."""
-    chat_session = get_session_or_404(session, session_id)
+    chat_session = get_session_or_404(session, session_id, user_id)
     msg = ChatMessage(
         session_id=session_id,
         role=role,
@@ -134,9 +146,9 @@ def append_message(
     return msg
 
 
-def delete_session(session: Session, session_id: str) -> None:
+def delete_session(session: Session, session_id: str, user_id: int) -> None:
     """Delete a session and all its messages (cascade)."""
-    chat_session = get_session_or_404(session, session_id)
+    chat_session = get_session_or_404(session, session_id, user_id)
     # Delete messages first
     stmt = select(ChatMessage).where(ChatMessage.session_id == session_id)
     for msg in session.exec(stmt).all():
@@ -153,7 +165,7 @@ def get_somatotype_questions() -> list[dict]:
     return SOMATOTYPE_QUESTIONS
 
 
-def predict_somatotype(session: Session, req: SomatotypeQuizRequest) -> SomatotypeQuizResponse:
+def predict_somatotype(session: Session, user_id: int, req: SomatotypeQuizRequest) -> SomatotypeQuizResponse:
     """Predict physiological somatotype using deterministic vote scoring and LLM synthesis."""
     q_lookup = {q["id"]: {opt["value"]: opt for opt in q["options"]} for q in SOMATOTYPE_QUESTIONS}
 
@@ -249,7 +261,7 @@ def predict_somatotype(session: Session, req: SomatotypeQuizRequest) -> Somatoty
 
     profile_updated = False
     if req.auto_apply:
-        profile = get_or_create_default_profile(session)
+        profile = get_or_create_profile(session, user_id)
         profile.somatotype = Somatotype(predicted)
         profile.updated_at = datetime.now(timezone.utc)
         session.add(profile)

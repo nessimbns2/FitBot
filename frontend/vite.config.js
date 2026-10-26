@@ -9,7 +9,9 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    port: 5173,
     proxy: {
+      // The browser only talks to Vite; Vite forwards /api (JSON + SSE streams) to FastAPI.
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,

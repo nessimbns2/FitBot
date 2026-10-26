@@ -8,7 +8,9 @@ from __future__ import annotations
 from typing import Annotated, Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlmodel import Session
+from datetime import datetime, timezone
+
+from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.modules.exercises.catalog import (
@@ -26,7 +28,10 @@ from app.modules.exercises.generator import (
 from app.modules.exercises.service import get_exercise, list_exercises
 from app.modules.rag_core.engine import get_llm_client, get_vector_store
 from app.modules.user.models import ExperienceLevel, Goal
-from app.modules.user.service import get_or_create_default_profile
+from app.core.privacy import redact_pii, validate_llm_output
+from app.modules.auth.dependencies import CurrentUser
+from app.modules.exercises.models import SavedRoutine, SavedRoutineRead, SavedRoutineWrite
+from app.modules.user.service import get_or_create_profile
 
 router = APIRouter(
     prefix="/api/exercises",
@@ -127,10 +132,11 @@ def get_single_exercise(exercise_id: str) -> Exercise:
 )
 def create_routine(
     request: GenerateRoutineRequest,
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
 ) -> RoutineResult:
     """Generate a workout routine based on parameters, falling back to user profile defaults."""
-    profile = get_or_create_default_profile(session)
+    profile = get_or_create_profile(session, user.id)
 
     split = request.split or SplitType.PUSH_PULL_LEGS
     days_per_week = request.days_per_week or 4
@@ -197,9 +203,9 @@ def get_form_cues(
                 f"You are an expert exercise coach. Provide 2-3 focused coaching tips for {exercise.name}. "
                 f"Reference context: {context_str}"
             )
-            guidance_text = llm.complete(
-                messages=[{"role": "user", "content": req.question or f"How to optimize form for {exercise.name}?"}],
-                system=sys,
+            question = redact_pii(req.question) if req.question else f"How to optimize form for {exercise.name}?"
+            guidance_text = validate_llm_output(
+                llm.complete(messages=[{"role": "user", "content": question}], system=sys)
             )
             extra_guidance = f"{pain_warning}{guidance_text}".strip()
         elif pain_warning:
@@ -227,10 +233,11 @@ def get_form_cues(
     summary="Get body-type training guidance from guides",
 )
 def get_body_type_guidance(
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
 ) -> BodyTypeGuidanceResponse:
     """Retrieve exercise-category guidance tailored to user profile somatotype."""
-    profile = get_or_create_default_profile(session)
+    profile = get_or_create_profile(session, user.id)
     somatotype = profile.somatotype.value
 
     guidance = f"Guidance for {somatotype}: prioritize progressive compound movements and adequate recovery."
@@ -244,9 +251,12 @@ def get_body_type_guidance(
             llm = get_llm_client()
             from app.prompts import SOMATOTYPE_EXERCISE_USER_TEMPLATE
             context_str = "\n".join(f"[{i+1}] {p.text}" for i, p in enumerate(passages))
-            guidance = llm.complete(
-                messages=[{"role": "user", "content": SOMATOTYPE_EXERCISE_USER_TEMPLATE.format(somatotype=somatotype)}],
-                system=f"Context:\n{context_str}",
+            guidance = validate_llm_output(
+                llm.complete(
+                    messages=[{"role": "user", "content": SOMATOTYPE_EXERCISE_USER_TEMPLATE.format(somatotype=somatotype)}],
+                    system=f"Context:\n{context_str}",
+                ),
+                fallback=guidance,
             )
     except Exception:
         pass
@@ -410,8 +420,9 @@ def ai_suggest_exercise(
             goal=req.goal,
         )
         ai_resp = llm.complete(messages=[{"role": "user", "content": user_msg}], system=ROUTINE_SUGGESTION_SYSTEM_PROMPT)
-        if ai_resp and len(ai_resp.strip()) > 10:
-            reason = ai_resp.strip()
+        ai_resp = validate_llm_output(ai_resp)
+        if ai_resp and len(ai_resp) > 10:
+            reason = ai_resp
     except Exception:
         pass
 
@@ -436,3 +447,42 @@ def ai_suggest_exercise(
             "target_sets": target_sets,
         },
     )
+
+
+# ── Saved routine (stored in the database, per user) ──────────────────────────
+
+
+@router.get("/routine", response_model=Optional[SavedRoutineRead], summary="Get the user's saved routine")
+def get_saved_routine(user: CurrentUser, session: Annotated[Session, Depends(get_session)]):
+    """Return the routine the user is following, or null if none was saved yet."""
+    return session.exec(select(SavedRoutine).where(SavedRoutine.user_id == user.id)).first()
+
+
+@router.put("/routine", response_model=SavedRoutineRead, summary="Save (replace) the user's routine")
+def save_routine(
+    data: SavedRoutineWrite,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+):
+    if not isinstance(data.routine.get("days"), list):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Routine must contain a 'days' list.")
+    saved = session.exec(select(SavedRoutine).where(SavedRoutine.user_id == user.id)).first()
+    if saved is None:
+        saved = SavedRoutine(user_id=user.id, split=data.split, days_per_week=data.days_per_week, routine=data.routine)  # type: ignore[arg-type]
+    else:
+        saved.split = data.split
+        saved.days_per_week = data.days_per_week
+        saved.routine = data.routine
+        saved.updated_at = datetime.now(timezone.utc)
+    session.add(saved)
+    session.commit()
+    session.refresh(saved)
+    return saved
+
+
+@router.delete("/routine", status_code=status.HTTP_204_NO_CONTENT, summary="Forget the user's saved routine")
+def delete_saved_routine(user: CurrentUser, session: Annotated[Session, Depends(get_session)]):
+    saved = session.exec(select(SavedRoutine).where(SavedRoutine.user_id == user.id)).first()
+    if saved is not None:
+        session.delete(saved)
+        session.commit()

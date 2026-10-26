@@ -175,17 +175,60 @@ def test_scan_meal_invalid_base64(client):
     assert resp.status_code == 400
 
 
-def test_scan_meal_valid_payload(client):
+def _dummy_image_payload():
     import base64
-    # Create 120-byte valid base64 dummy image
     dummy_bytes = b"GIF89a" + b"\x00" * 150
     dummy_b64 = base64.b64encode(dummy_bytes).decode("utf-8")
-
-    resp = client.post("/api/nutrition/scan-meal", json={
+    return {
         "image_base64": f"data:image/jpeg;base64,{dummy_b64}",
         "mime_type": "image/jpeg",
         "meal_slot": "Post-Workout Lunch",
-    })
+    }
+
+
+def _fake_vision(monkeypatch, response_text):
+    """Configure an API key and replace the Gemini model with a canned response."""
+    import google.generativeai as genai
+    from app.core.config import settings
+
+    class _Resp:
+        text = response_text
+
+    class _Model:
+        def __init__(self, *a, **k):
+            pass
+
+        def generate_content(self, *a, **k):
+            return _Resp()
+
+    monkeypatch.setattr(settings, "LLM_API_KEY", "test-key")
+    monkeypatch.setattr(genai, "configure", lambda **k: None)
+    monkeypatch.setattr(genai, "GenerativeModel", _Model)
+
+
+def test_scan_meal_without_api_key_returns_503(client):
+    """No API key: a clear 503 instead of fabricated nutrition numbers."""
+    resp = client.post("/api/nutrition/scan-meal", json=_dummy_image_payload())
+    assert resp.status_code == 503
+    assert "api key" in resp.json()["detail"].lower()
+
+
+def test_scan_meal_rejects_unreadable_ai_output(client, monkeypatch):
+    """The model's output is validated before display: garbage -> 502."""
+    _fake_vision(monkeypatch, "Sorry, I cannot see any food here.")
+    resp = client.post("/api/nutrition/scan-meal", json=_dummy_image_payload())
+    assert resp.status_code == 502
+
+
+def test_scan_meal_valid_payload(client, monkeypatch):
+    _fake_vision(monkeypatch, """```json
+{"meal_name": "Chicken rice bowl", "confidence": "high", "total_calories": 640,
+ "protein_g": 48, "carbs_g": 70, "fat_g": 16,
+ "food_items": [{"name": "Grilled chicken", "portion_est": "180g", "calories": 300,
+                 "protein_g": 45, "carbs_g": 0, "fat_g": 8}],
+ "coaching_tip": "Great post-workout balance."}
+```""")
+    resp = client.post("/api/nutrition/scan-meal", json=_dummy_image_payload())
     assert resp.status_code == 200
     data = resp.json()
     assert "meal_name" in data

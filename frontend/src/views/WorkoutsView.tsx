@@ -19,6 +19,9 @@ import {
   getFormCue,
   getBodyTypeGuidance,
   getAISuggestExercise,
+  getSavedRoutine,
+  saveRoutine as apiSaveRoutine,
+  deleteSavedRoutine,
 } from '../api/client';
 import {
   PageHeader,
@@ -122,25 +125,10 @@ export function WorkoutsView() {
   const [cueResult, setCueResult] = useState<any>(null);
   const [isLoadingCues, setIsLoadingCues] = useState<boolean>(false);
 
-  // Routine Generator State (persisted via localStorage)
-  const [split, setSplit] = useState<string>(() => {
-    return localStorage.getItem('fitbot_routine_split') || 'push_pull_legs';
-  });
-  const [daysPerWeek, setDaysPerWeek] = useState<number>(() => {
-    const saved = localStorage.getItem('fitbot_routine_days_per_week');
-    return saved ? Number(saved) : 4;
-  });
-  const [routineResult, setRoutineResult] = useState<RoutineResult | null>(() => {
-    const saved = localStorage.getItem('fitbot_saved_routine');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  });
+  // Routine Generator State (persisted per user in the database)
+  const [split, setSplit] = useState<string>('push_pull_legs');
+  const [daysPerWeek, setDaysPerWeek] = useState<number>(4);
+  const [routineResult, setRoutineResult] = useState<RoutineResult | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
   // Swap / Add Exercise Modal State
@@ -223,11 +211,18 @@ export function WorkoutsView() {
   useEffect(() => {
     loadExercises();
     loadBodyType();
-    // Only generate if no saved routine in storage
-    const saved = localStorage.getItem('fitbot_saved_routine');
-    if (!saved) {
-      handleGenerateRoutine();
-    }
+    // Restore the user's saved routine; generate a first one only if none exists yet.
+    getSavedRoutine()
+      .then((saved: { split: string; days_per_week: number; routine: RoutineResult } | null) => {
+        if (saved?.routine?.days) {
+          setSplit(saved.split);
+          setDaysPerWeek(saved.days_per_week);
+          setRoutineResult(saved.routine);
+        } else {
+          handleGenerateRoutine();
+        }
+      })
+      .catch(() => handleGenerateRoutine());
   }, []);
 
   useEffect(() => {
@@ -249,9 +244,11 @@ export function WorkoutsView() {
     return map;
   };
 
-  const saveRoutine = (updatedRoutine: RoutineResult) => {
+  const saveRoutine = (updatedRoutine: RoutineResult, splitValue = split, daysValue = daysPerWeek) => {
     setRoutineResult(updatedRoutine);
-    localStorage.setItem('fitbot_saved_routine', JSON.stringify(updatedRoutine));
+    apiSaveRoutine(splitValue, daysValue, updatedRoutine).catch((err: any) =>
+      setToast({ type: 'error', message: err.message || 'Could not save your routine' })
+    );
   };
 
   const handleGenerateRoutine = async (splitParam?: string, daysParam?: number) => {
@@ -266,10 +263,7 @@ export function WorkoutsView() {
         goal: profile?.goal || 'hypertrophy',
         available_equipment: ['barbell', 'dumbbell', 'cables', 'bodyweight'],
       });
-      setRoutineResult(data);
-      localStorage.setItem('fitbot_routine_split', targetSplit);
-      localStorage.setItem('fitbot_routine_days_per_week', String(targetDays));
-      localStorage.setItem('fitbot_saved_routine', JSON.stringify(data));
+      saveRoutine(data, targetSplit, Number(targetDays));
       setToast({ type: 'success', message: 'New routine generated and saved to your profile!' });
     } catch (err: any) {
       setToast({ type: 'error', message: err.message || 'Failed to generate routine' });
@@ -632,8 +626,9 @@ export function WorkoutsView() {
                         variant="secondary"
                         size="md"
                         onClick={() => {
-                          localStorage.removeItem('fitbot_saved_routine');
-                          handleGenerateRoutine();
+                          deleteSavedRoutine()
+                            .catch(() => undefined)
+                            .finally(() => handleGenerateRoutine());
                         }}
                         title="Reset to algorithmic defaults"
                         leftIcon={<RotateCcw className="w-4 h-4" />}

@@ -1,35 +1,131 @@
 /**
  * src/api/client.js
  * Centralized API client for Fitness Coach FastAPI backend.
+ * Every request carries the JWT access token; a 401 on an authenticated call logs the user out.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Same-origin by default: Vite (dev) and nginx (Docker) proxy /api to the FastAPI backend,
+// so the app works whatever port it is served on and no CORS preflight is needed.
+const API_BASE = import.meta.env.VITE_API_URL || '';
+const TOKEN_KEY = 'fitbot_access_token';
+
+// ── Token storage ─────────────────────────────────────────────────────────────
+
+export function getToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setToken(token) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* storage unavailable (private mode): the session lasts until reload */
+  }
+}
+
+function authHeaders() {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function handleUnauthorized() {
+  setToken(null);
+  window.dispatchEvent(new Event('fitbot:unauthorized'));
+}
 
 async function request(endpoint, options = {}) {
+  const { auth = true, ...fetchOptions } = options;
   const url = `${API_BASE}${endpoint}`;
   const headers = {
     'Content-Type': 'application/json',
-    ...(options.headers || {}),
+    ...(auth ? authHeaders() : {}),
+    ...(fetchOptions.headers || {}),
   };
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      ...fetchOptions,
+      headers,
+    });
+  } catch {
+    throw new Error('Cannot reach the FitBot server. Is the backend running?');
+  }
+
+  if (response.status === 401 && auth) {
+    handleUnauthorized();
+  }
 
   if (!response.ok) {
     let errorDetail = 'API request failed';
     try {
       const errorData = await response.json();
-      errorDetail = errorData.detail || errorData.message || JSON.stringify(errorData);
+      const detail = errorData.detail ?? errorData.message ?? errorData.error;
+      if (Array.isArray(detail)) {
+        // FastAPI validation errors: [{loc, msg}, ...]
+        errorDetail = detail.map((d) => String(d.msg || d).replace(/^Value error, /, '')).join(' ');
+      } else {
+        errorDetail = typeof detail === 'string' ? detail : JSON.stringify(errorData);
+      }
     } catch {
       errorDetail = `HTTP ${response.status}: ${response.statusText}`;
     }
-    throw new Error(errorDetail);
+    if (response.status === 429) errorDetail = 'Too many attempts. Please wait a minute and try again.';
+    const err = new Error(errorDetail);
+    err.status = response.status;
+    throw err;
   }
 
   if (response.status === 204) return null;
   return response.json();
+}
+
+// ── Authentication ────────────────────────────────────────────────────────────
+
+export async function register(fullName, email, password) {
+  return request('/api/auth/register', {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify({ full_name: fullName, email, password }),
+  });
+}
+
+export async function login(email, password) {
+  return request('/api/auth/login', {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function getMe() {
+  return request('/api/auth/me');
+}
+
+export async function updateMe(fullName) {
+  return request('/api/auth/me', {
+    method: 'PUT',
+    body: JSON.stringify({ full_name: fullName }),
+  });
+}
+
+export async function changePassword(currentPassword, newPassword) {
+  return request('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+}
+
+export async function deleteAccount(password) {
+  return request('/api/auth/me', {
+    method: 'DELETE',
+    body: JSON.stringify({ password }),
+  });
 }
 
 // ── User & Profile ────────────────────────────────────────────────────────────
@@ -104,6 +200,40 @@ export async function scanMealPhoto(imageBase64, mimeType = 'image/jpeg', mealSl
       meal_slot: mealSlot,
     }),
   });
+}
+
+// ── Meal diary (persisted in PostgreSQL) ─────────────────────────────────────
+
+export async function listMeals(day = null) {
+  return request(day ? `/api/nutrition/meals?day=${day}` : '/api/nutrition/meals');
+}
+
+export async function createMeal(meal) {
+  return request('/api/nutrition/meals', {
+    method: 'POST',
+    body: JSON.stringify(meal),
+  });
+}
+
+export async function deleteMeal(mealId) {
+  return request(`/api/nutrition/meals/${mealId}`, { method: 'DELETE' });
+}
+
+// ── Saved routine (persisted in PostgreSQL) ──────────────────────────────────
+
+export async function getSavedRoutine() {
+  return request('/api/exercises/routine');
+}
+
+export async function saveRoutine(split, daysPerWeek, routine) {
+  return request('/api/exercises/routine', {
+    method: 'PUT',
+    body: JSON.stringify({ split, days_per_week: Number(daysPerWeek), routine }),
+  });
+}
+
+export async function deleteSavedRoutine() {
+  return request('/api/exercises/routine', { method: 'DELETE' });
 }
 
 // ── Exercises ─────────────────────────────────────────────────────────────────
@@ -209,11 +339,18 @@ export async function streamChatMessage(
   const url = `${API_BASE}/api/chat/stream`;
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ message, session_id: sessionId }),
     signal,
   });
 
+  if (response.status === 401) {
+    handleUnauthorized();
+    throw new Error('Your session has expired. Please log in again.');
+  }
+  if (response.status === 429) {
+    throw new Error('You are sending messages too quickly. Please wait a moment.');
+  }
   if (!response.ok) {
     throw new Error(`HTTP error ${response.status}`);
   }

@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.core.database import get_session
+from app.modules.auth.dependencies import CurrentUser
 from app.modules.progressive_overload.algorithms import Recommendation
 from app.modules.progressive_overload.models import (
     SessionGroup,
@@ -49,11 +50,12 @@ class RecommendationResponse(BaseModel):
 )
 def create_set_or_sets(
     payload: Union[WorkoutSetCreate, List[WorkoutSetCreate]],
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
 ) -> Union[WorkoutSetRead, List[WorkoutSetRead]]:
     """Log one set or a list of sets for a workout session with automatic unit conversion and RPE/RIR derivation."""
     if isinstance(payload, list):
-        sets = log_sets_bulk(session, payload)
+        sets = log_sets_bulk(session, payload, user_id=user.id)
         return [
             WorkoutSetRead(
                 id=s.id,
@@ -71,7 +73,7 @@ def create_set_or_sets(
             for s in sets
         ]
     else:
-        s = log_set(session, payload)
+        s = log_set(session, payload, user_id=user.id)
         return WorkoutSetRead(
             id=s.id,
             user_id=s.user_id,
@@ -94,12 +96,13 @@ def create_set_or_sets(
 )
 def get_exercise_history(
     exercise_id: str,
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
     limit: int = Query(50, ge=1, le=200),
     since: Optional[datetime] = Query(None),
 ) -> List[SessionGroup]:
     """Retrieve logged sets for an exercise grouped by date (newest first)."""
-    return get_history(session, exercise_id=exercise_id, limit=limit, since=since)
+    return get_history(session, exercise_id=exercise_id, user_id=user.id, limit=limit, since=since)
 
 
 @router.get(
@@ -109,11 +112,12 @@ def get_exercise_history(
 )
 def get_next_recommendation(
     exercise_id: str,
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
     algorithm: str = Query("double", pattern="^(double|linear)$"),
 ) -> RecommendationResponse:
     """Calculate next workout target (weight, reps, alternative) based on logged history and exercise type."""
-    rec = get_recommendation(session, exercise_id=exercise_id, algorithm=algorithm)
+    rec = get_recommendation(session, exercise_id=exercise_id, algorithm=algorithm, user_id=user.id)
     return RecommendationResponse(
         weight_kg=rec.weight_kg,
         rep_target=rec.rep_target,
@@ -130,8 +134,9 @@ def get_next_recommendation(
     summary="Get effective weekly volume per muscle group",
 )
 def get_volume(
+    user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
     week_start: Optional[date] = Query(None, description="Start date of the week (YYYY-MM-DD, defaults to Monday)"),
 ) -> Dict[str, Any]:
     """Calculate effective weekly sets (RPE >= 6.0) per muscle group with in_range status."""
-    return get_weekly_volume_summary(session, week_start=week_start)
+    return get_weekly_volume_summary(session, week_start=week_start, user_id=user.id)

@@ -30,8 +30,9 @@ services:
       DOCS_DIR: /app/docs
       VECTORSTORE_DIR: /app/vectorstore
       LLM_PROVIDER: gemini
-      LLM_MODEL: gemini-2.0-flash
+      LLM_MODEL: gemini-3.5-flash-lite
       LLM_API_KEY: ${LLM_API_KEY:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in a .env file next to docker-compose.yml}
       EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
       CORS_ORIGINS: http://localhost,http://localhost:5173,http://localhost:80
       DEBUG: "false"

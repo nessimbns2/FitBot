@@ -22,8 +22,10 @@ import {
   Moon,
   ChevronRight,
   ShieldCheck,
+  LogOut,
 } from 'lucide-react';
 import { useProfile } from '../context/ProfileContext';
+import { useAuth } from '../context/AuthContext';
 import { useTheme, Tooltip } from '../design';
 
 interface NavGroup {
@@ -60,8 +62,15 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+function initialsOf(name?: string | null) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
 export function Sidebar() {
   const { profile } = useProfile();
+  const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -210,11 +219,11 @@ export function Sidebar() {
           >
             <div className="flex items-center gap-2.5 min-w-0 pr-1">
               <div className="w-8 h-8 rounded-full bg-[var(--accent-primary-subtle)] border border-[var(--accent-primary-border)] text-[var(--accent-text)] flex items-center justify-center font-bold text-xs shrink-0">
-                {profile?.sex === 'female' ? '♀' : '♂'}
+                {initialsOf(user?.full_name)}
               </div>
               <div className="min-w-0">
-                <span className="block text-xs font-bold text-[var(--text-primary)] truncate">
-                  Athlete
+                <span className="block text-xs font-bold text-[var(--text-primary)] truncate" title={user?.email}>
+                  {user?.full_name || 'Athlete'}
                 </span>
                 <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-secondary)]">
                   <span className="capitalize truncate max-w-[80px]">
@@ -238,11 +247,28 @@ export function Sidebar() {
               className="w-full flex justify-center p-2 rounded-xl bg-[var(--bg-subtle)] hover:bg-[var(--bg-subtle)]/80 border border-[var(--border-subtle)] cursor-pointer"
             >
               <div className="w-7 h-7 rounded-full bg-[var(--accent-primary-subtle)] text-[var(--accent-text)] flex items-center justify-center font-bold text-xs">
-                {profile?.sex === 'female' ? '♀' : '♂'}
+                {initialsOf(user?.full_name)}
               </div>
             </button>
           </Tooltip>
         )}
+
+        {/* Logout */}
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            navigate('/login', { replace: true });
+          }}
+          aria-label="Log out"
+          title="Log out"
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-[var(--text-secondary)] hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer ${
+            isCollapsed ? 'justify-center' : ''
+          }`}
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+          {!isCollapsed && <span>Log out</span>}
+        </button>
       </div>
     </aside>
   );
@@ -251,6 +277,7 @@ export function Sidebar() {
 export function MobileTopBar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   const getPageTitle = (path: string) => {
@@ -298,6 +325,18 @@ export function MobileTopBar() {
           className="w-8 h-8 rounded-full bg-[var(--accent-primary-subtle)] border border-[var(--accent-primary-border)] text-[var(--accent-text)] flex items-center justify-center font-bold text-xs"
         >
           <User className="w-4 h-4" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            navigate('/login', { replace: true });
+          }}
+          aria-label="Log out"
+          className="p-2 rounded-lg text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
         </button>
       </div>
     </header>

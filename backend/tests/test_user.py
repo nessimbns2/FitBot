@@ -76,41 +76,39 @@ def test_delete_session_404_on_unknown(client):
     assert resp.status_code == 404
 
 
-def test_session_create_list_delete(client, session):
+def test_session_create_list_delete(session, test_user):
     """Create a session via service, list it, then delete it."""
-    from app.modules.user.service import create_session, delete_session, list_sessions, get_or_create_default_profile
+    from app.modules.user.service import create_session, delete_session, list_sessions
 
-    get_or_create_default_profile(session)
-    s = create_session(session, title="Test session")
-    sessions = list_sessions(session)
+    s = create_session(session, test_user.id, title="Test session")
+    sessions = list_sessions(session, test_user.id)
     assert len(sessions) == 1
     assert sessions[0].title == "Test session"
 
-    delete_session(session, s.id)
-    assert list_sessions(session) == []
+    delete_session(session, s.id, test_user.id)
+    assert list_sessions(session, test_user.id) == []
 
 
-def test_session_delete_cascades_messages(client, session):
+def test_session_delete_cascades_messages(session, test_user):
     """Deleting a session must also delete its messages."""
     from app.modules.user.service import (
         append_message,
         create_session,
         delete_session,
-        get_or_create_default_profile,
         get_session_messages,
     )
 
-    get_or_create_default_profile(session)
-    s = create_session(session, "Cascade test")
-    append_message(session, s.id, "user", "hello")
-    append_message(session, s.id, "assistant", "world")
-    assert len(get_session_messages(session, s.id)) == 2
+    uid = test_user.id
+    s = create_session(session, uid, "Cascade test")
+    append_message(session, s.id, uid, "user", "hello")
+    append_message(session, s.id, uid, "assistant", "world")
+    assert len(get_session_messages(session, s.id, uid)) == 2
 
-    delete_session(session, s.id)
+    delete_session(session, s.id, uid)
     # session is gone — further lookups should 404 via HTTPException
     import pytest
     with pytest.raises(Exception):
-        get_session_messages(session, s.id)
+        get_session_messages(session, s.id, uid)
 
 
 def test_get_somatotype_questions(client: TestClient):

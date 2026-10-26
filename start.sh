@@ -7,7 +7,7 @@ echo "🏋️  Starting FitBot Full-Stack App..."
 
 # 1. Start FastAPI backend
 echo " Starting FastAPI backend on http://127.0.0.1:8000..."
-python -m uvicorn main_v2:app --host 0.0.0.0 --port "${PORT:-8000}" --reload &
+(cd "$ROOT_DIR/backend" && { [ -x .venv/bin/python ] && PY=.venv/bin/python || PY=python; $PY -m alembic upgrade head && $PY -m uvicorn main_v2:app --host 0.0.0.0 --port "${PORT:-8000}" --reload; }) &
 
 BACKEND_PID=$!
 

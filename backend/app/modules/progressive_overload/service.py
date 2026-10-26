@@ -37,7 +37,7 @@ def _convert_weight_to_kg(weight: float, unit: UnitType) -> float:
     return round(weight, 2)
 
 
-def log_set(session: Session, data: WorkoutSetCreate, user_id: int = 1) -> WorkoutSet:
+def log_set(session: Session, data: WorkoutSetCreate, user_id: int) -> WorkoutSet:
     """Validate exercise and log a single workout set in kg."""
     exercise = get_exercise(data.exercise_id)
     if not exercise:
@@ -67,7 +67,7 @@ def log_set(session: Session, data: WorkoutSetCreate, user_id: int = 1) -> Worko
     return workout_set
 
 
-def log_sets_bulk(session: Session, items: List[WorkoutSetCreate], user_id: int = 1) -> List[WorkoutSet]:
+def log_sets_bulk(session: Session, items: List[WorkoutSetCreate], user_id: int) -> List[WorkoutSet]:
     """Validate and log multiple workout sets in a single transaction."""
     results: List[WorkoutSet] = []
     for item in items:
@@ -104,7 +104,7 @@ def log_sets_bulk(session: Session, items: List[WorkoutSetCreate], user_id: int 
 def get_history(
     session: Session,
     exercise_id: str,
-    user_id: int = 1,
+    user_id: int,
     limit: int = 50,
     since: Optional[datetime] = None,
 ) -> List[SessionGroup]:
@@ -154,7 +154,8 @@ def get_recommendation(
     session: Session,
     exercise_id: str,
     algorithm: str = "double",
-    user_id: int = 1,
+    *,
+    user_id: int,
 ) -> Recommendation:
     """Compute progressive overload recommendation for the next session."""
     exercise = get_exercise(exercise_id)
@@ -204,7 +205,8 @@ def get_recommendation(
 def get_weekly_volume_summary(
     session: Session,
     week_start: Optional[date] = None,
-    user_id: int = 1,
+    *,
+    user_id: int,
 ) -> Dict[str, Any]:
     """Calculate effective weekly sets per muscle group for the specified or current week (Monday start)."""
     if week_start is None:

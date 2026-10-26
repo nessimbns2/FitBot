@@ -140,7 +140,8 @@ export function ChatView() {
       const data = await listSessions();
       setSessions(data || []);
       if (data && data.length > 0 && !activeSessionId) {
-        selectSession(data[data.length - 1].id);
+        // Sessions come newest first: reopen the most recent conversation.
+        selectSession(data[0].id);
       }
     } catch (err) {
       console.error('Error fetching chat sessions:', err);
@@ -152,7 +153,18 @@ export function ChatView() {
     setIsHistoryDrawerOpen(false);
     try {
       const msgs = await getSessionMessages(sessionId);
-      setMessages(msgs || []);
+      // The API stores retrieved sources as JSON text; turn them back into arrays.
+      setMessages(
+        (msgs || []).map((m: any) => {
+          if (typeof m.sources !== 'string') return m;
+          try {
+            const parsed = JSON.parse(m.sources);
+            return { ...m, sources: Array.isArray(parsed) ? parsed : [] };
+          } catch {
+            return { ...m, sources: [] };
+          }
+        })
+      );
       setPendingAction(null);
       setExpandedSources({});
     } catch (err) {
@@ -250,7 +262,11 @@ export function ChatView() {
         onMeta: (meta: any) => {
           if (meta?.session_id && !activeSessionId) {
             setActiveSessionId(meta.session_id);
-            loadSessions();
+            // Only refresh the history list: reloading the session's messages now would
+            // replace the answer being streamed (the turn is saved when the stream ends).
+            listSessions()
+              .then((data) => setSessions(data || []))
+              .catch(() => undefined);
           }
         },
         onError: (errMsg: string) => {

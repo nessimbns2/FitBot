@@ -17,7 +17,7 @@ from app.modules.nutrition.calculator import MacroResult
 from app.modules.nutrition.service import calculate_macros
 from app.modules.progressive_overload.service import get_history, get_recommendation
 from app.modules.rag_core.engine import LLMClient, get_llm_client
-from app.modules.user.service import get_or_create_default_profile
+from app.modules.user.service import get_or_create_profile
 
 
 # ── Intents & Patterns ────────────────────────────────────────────────────────
@@ -195,10 +195,10 @@ def enrich(
     intent: str,
     message: str,
     session: Session,
-    user_id: int = 1,
+    user_id: int,
 ) -> EnrichedContext:
     """Enrich context with user facts, deterministic math numbers, and appropriate category."""
-    profile = get_or_create_default_profile(session)
+    profile = get_or_create_profile(session, user_id)
     user_facts = (
         f"Age: {profile.age}, Sex: {profile.sex.value}, Height: {profile.height_cm} cm, "
         f"Weight: {profile.weight_kg} kg, Body Fat: {profile.body_fat_pct or 'N/A'}%, "
@@ -213,7 +213,7 @@ def enrich(
     if intent == "nutrition":
         retrieval_category = "nutrition"
         from app.modules.nutrition.service import MacroRequest
-        macro_res = calculate_macros(MacroRequest(), session)
+        macro_res = calculate_macros(MacroRequest(), session, user_id)
         floor_note = f" (Floor applied: {macro_res.floor_applied})" if macro_res.floor_applied else ""
         numbers = (
             f"BMR: {macro_res.bmr:.0f} kcal ({macro_res.bmr_formula}), "

@@ -19,11 +19,6 @@ from app.modules.rag_core.engine import (
 )
 
 
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-
 def test_guardrail_crash_diet_floor_enforcement():
     """Crash diets below physiological safety floors must be clamped with explicit warnings."""
     # Extreme female restriction

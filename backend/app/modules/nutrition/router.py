@@ -3,31 +3,41 @@ app/modules/nutrition/router.py
 HTTP layer for the Nutrition module: macro calculation, meal planning, and retrieval-backed nutrition guidance.
 """
 
-from __future__ import annotations
 
 import base64
 import json
 import re
 from collections.abc import AsyncIterator
+from datetime import date, datetime, timezone
 from typing import Annotated, Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.database import get_session
+from app.core.rate_limit import limiter
 from app.modules.nutrition import service as svc
 from app.modules.nutrition.calculator import MacroResult
 from app.modules.nutrition.service import MacroRequest, MealPlanResult
+from app.core.privacy import redact_pii, validate_llm_output
 from app.modules.rag_core.engine import (
+    LLMUnavailableError,
     SearchResult,
+    classify_llm_error,
     build_prompt,
+    degraded_answer,
     get_llm_client,
     get_vector_store,
 )
-from app.modules.user.service import get_or_create_default_profile
+from app.modules.auth.dependencies import CurrentUser
+from app.modules.nutrition.models import MealLog, MealLogCreate, MealLogRead
+from app.modules.user.service import get_or_create_profile
 
 SessionDep = Annotated[Session, Depends(get_session)]
+
+MAX_SCAN_IMAGE_BYTES = 8 * 1024 * 1024
+ALLOWED_SCAN_MIME_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 
 router = APIRouter(
     prefix="/api/nutrition",
@@ -64,15 +74,16 @@ class NutritionAskRequest(BaseModel):
 class NutritionAskResponse(BaseModel):
     answer: str
     sources: List[Dict[str, Any]]
+    ai_status: str = "ok"
 
 
 class FoodItemAnalysis(BaseModel):
-    name: str
-    portion_est: str
-    calories: int
-    protein_g: float
-    carbs_g: float
-    fat_g: float
+    name: str = Field(max_length=200)
+    portion_est: str = Field(default="", max_length=100)
+    calories: int = Field(ge=0, le=5000)
+    protein_g: float = Field(ge=0, le=500)
+    carbs_g: float = Field(ge=0, le=500)
+    fat_g: float = Field(ge=0, le=500)
 
 
 class MealScanRequest(BaseModel):
@@ -82,12 +93,12 @@ class MealScanRequest(BaseModel):
 
 
 class MealScanResponse(BaseModel):
-    meal_name: str
-    confidence: str
-    total_calories: int
-    protein_g: float
-    carbs_g: float
-    fat_g: float
+    meal_name: str = Field(max_length=200)
+    confidence: str = Field(max_length=20)
+    total_calories: int = Field(ge=0, le=10000)
+    protein_g: float = Field(ge=0, le=1000)
+    carbs_g: float = Field(ge=0, le=1000)
+    fat_g: float = Field(ge=0, le=1000)
     food_items: List[FoodItemAnalysis] = Field(default_factory=list)
     coaching_tip: Optional[str] = None
 
@@ -95,10 +106,10 @@ class MealScanResponse(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/calculate-macros")
-def calculate_macros(body: MacroRequestBody, session: SessionDep) -> dict:
+def calculate_macros(body: MacroRequestBody, user: CurrentUser, session: SessionDep) -> dict:
     """Calculate TDEE and macro targets, merging overrides with the stored profile."""
     request = MacroRequest(**body.model_dump())
-    result = svc.calculate_macros(request, session)
+    result = svc.calculate_macros(request, session, user.id)
     return {
         "bmr": result.bmr,
         "bmr_formula": result.bmr_formula,
@@ -115,6 +126,7 @@ def calculate_macros(body: MacroRequestBody, session: SessionDep) -> dict:
 @router.post("/plan")
 def meal_plan(
     body: MealPlanRequestBody,
+    user: CurrentUser,
     session: SessionDep,
     include_guidance: Optional[bool] = Query(None),
 ) -> dict:
@@ -129,9 +141,9 @@ def meal_plan(
         if k not in ("meals_per_day", "training_time", "include_guidance")
     }
     request = MacroRequest(**clean_dict)
-    macros = svc.calculate_macros(request, session)
+    macros = svc.calculate_macros(request, session, user.id)
 
-    profile = get_or_create_default_profile(session)
+    profile = get_or_create_profile(session, user.id)
     weight_kg = body.weight_kg or profile.weight_kg
     goal = body.goal or profile.goal.value
 
@@ -219,6 +231,7 @@ def meal_plan(
 @router.post("/ask", response_model=NutritionAskResponse, summary="Ask nutrition-specific question")
 async def ask_nutrition(
     req: NutritionAskRequest,
+    user: CurrentUser,
     session: SessionDep,
     stream: bool = Query(False),
 ):
@@ -234,8 +247,10 @@ async def ask_nutrition(
         )
 
     # Calculate exact numbers to inject
-    profile = get_or_create_default_profile(session)
-    macros = svc.calculate_macros(MacroRequest(), session)
+    profile = get_or_create_profile(session, user.id)
+    macros = svc.calculate_macros(MacroRequest(), session, user.id)
+    # Never forward raw personal data to the LLM (emails, phone numbers, the user's name…).
+    question = redact_pii(req.question, known_names=[user.full_name])
     facts = f"Age: {profile.age}, Sex: {profile.sex.value}, Weight: {profile.weight_kg} kg, Goal: {profile.goal.value}"
     numbers = (
         f"Target Calories: {macros.target_kcal:.0f} kcal, "
@@ -247,7 +262,7 @@ async def ask_nutrition(
         facts=facts,
         numbers=numbers,
         passages=passages,
-        history=[{"role": "user", "content": req.question}],
+        history=[{"role": "user", "content": question}],
     )
 
     sources_data = [
@@ -269,7 +284,7 @@ async def ask_nutrition(
                     "data": json.dumps(sources_data),
                 }
                 async for token in llm.stream(
-                    messages=[{"role": "user", "content": req.question}],
+                    messages=[{"role": "user", "content": question}],
                     system=system_prompt,
                 ):
                     yield {
@@ -280,6 +295,15 @@ async def ask_nutrition(
                     "event": "done",
                     "data": json.dumps({"status": "complete"}),
                 }
+            except LLMUnavailableError as err:
+                yield {
+                    "event": "token",
+                    "data": json.dumps({"token": degraded_answer(err, passages)}),
+                }
+                yield {
+                    "event": "done",
+                    "data": json.dumps({"status": "complete", "ai_status": err.reason}),
+                }
             except Exception:
                 yield {
                     "event": "error",
@@ -288,12 +312,18 @@ async def ask_nutrition(
 
         return EventSourceResponse(event_generator())
 
-    answer = llm.complete(
-        messages=[{"role": "user", "content": req.question}],
-        system=system_prompt,
-    )
+    try:
+        answer = validate_llm_output(
+            llm.complete(messages=[{"role": "user", "content": question}], system=system_prompt)
+        )
+        if not answer:
+            raise LLMUnavailableError("blocked")
+        ai_status = "ok"
+    except LLMUnavailableError as err:
+        answer = degraded_answer(err, passages)
+        ai_status = err.reason
 
-    return NutritionAskResponse(answer=answer, sources=sources_data)
+    return NutritionAskResponse(answer=answer, sources=sources_data, ai_status=ai_status)
 
 
 @router.post(
@@ -301,17 +331,24 @@ async def ask_nutrition(
     response_model=MealScanResponse,
     summary="Scan meal photo using Gemini Vision to extract foods, portions, and macros",
 )
+@limiter.limit("10/minute")
 def scan_meal(
+    request: Request,
     req: MealScanRequest,
+    user: CurrentUser,
 ) -> MealScanResponse:
-    """Analyze a food/meal photo and return estimated calories, macronutrients, and food item breakdown."""
+    """Analyze a food/meal photo and return estimated calories, macronutrients, and food item breakdown.
+
+    The image is sent to the vision model only; it is never stored. The model output is parsed
+    as JSON and validated (types and plausible ranges) before being returned.
+    """
     # 1. Clean base64 input if data URL prefix is attached
     raw_b64 = req.image_base64
     if "," in raw_b64:
         raw_b64 = raw_b64.split(",", 1)[1]
 
     try:
-        image_bytes = base64.b64decode(raw_b64)
+        image_bytes = base64.b64decode(raw_b64, validate=True)
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -323,8 +360,18 @@ def scan_meal(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Image data is too small or empty.",
         )
+    if len(image_bytes) > MAX_SCAN_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Image is too large (max 8 MB).",
+        )
 
     mime_type = req.mime_type or "image/jpeg"
+    if mime_type not in ALLOWED_SCAN_MIME_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Only JPEG, PNG and WEBP images are supported.",
+        )
     meal_slot_context = f" (Tagged as: {req.meal_slot})" if req.meal_slot else ""
 
     # 2. Vision prompt enforcing strictly structured JSON
@@ -332,73 +379,86 @@ def scan_meal(
 
     prompt = MEAL_SCAN_VISION_PROMPT.format(meal_slot_context=meal_slot_context)
 
-    # 3. Call Gemini Vision
+    # 3. Call Gemini Vision (typed errors: missing key, quota, timeout…)
+    from app.core.config import settings
+
+    if not settings.LLM_API_KEY.strip():
+        err = LLMUnavailableError("missing_api_key")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=err.user_message.split(".")[0] + ".")
+
     try:
         import google.generativeai as genai
-        from app.core.config import settings
 
-        api_key = settings.LLM_API_KEY
-        if api_key:
-            genai.configure(api_key=api_key)
-
-        vision_model_name = getattr(settings, "LLM_MODEL", "gemini-3.5-flash-lite")
+        genai.configure(api_key=settings.LLM_API_KEY)
+        vision_model_name = settings.LLM_MODEL or "gemini-3.5-flash-lite"
         if vision_model_name in ("gemini-2.0-flash", "gemini-2.5-flash"):
             vision_model_name = "gemini-3.5-flash-lite"
         model = genai.GenerativeModel(vision_model_name)
-        contents = [
-            {"mime_type": mime_type, "data": image_bytes},
-            prompt,
-        ]
-
-        response = model.generate_content(contents)
-        response_text = response.text.strip()
-
-        # Extract JSON from potential code fences
-        match = re.search(r"\{.*\}", response_text, re.DOTALL)
-        if match:
-            json_str = match.group(0)
-            data = json.loads(json_str)
-            return MealScanResponse(**data)
-        else:
-            data = json.loads(response_text)
-            return MealScanResponse(**data)
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        # Fallback simulation if offline or vision model error occurs
-        return MealScanResponse(
-            meal_name="Plate Analysis (Estimated Meal)",
-            confidence="medium",
-            total_calories=520,
-            protein_g=42.0,
-            carbs_g=48.0,
-            fat_g=14.0,
-            food_items=[
-                FoodItemAnalysis(
-                    name="Lean Protein Portion",
-                    portion_est="approx. 180g",
-                    calories=310,
-                    protein_g=38.0,
-                    carbs_g=0.0,
-                    fat_g=8.0,
-                ),
-                FoodItemAnalysis(
-                    name="Complex Carbohydrates",
-                    portion_est="approx. 140g",
-                    calories=170,
-                    protein_g=3.0,
-                    carbs_g=38.0,
-                    fat_g=1.5,
-                ),
-                FoodItemAnalysis(
-                    name="Vegetables & Olive Dressing",
-                    portion_est="approx. 100g",
-                    calories=40,
-                    protein_g=1.0,
-                    carbs_g=5.0,
-                    fat_g=4.5,
-                ),
-            ],
-            coaching_tip=f"Analyzed meal image successfully. Tip: Aim for 30-45g of protein per main meal to maximize muscle protein synthesis.",
+        response = model.generate_content(
+            [{"mime_type": mime_type, "data": image_bytes}, prompt],
+            request_options={"timeout": settings.LLM_TIMEOUT_SECONDS},
         )
+        response_text = (response.text or "").strip()
+    except Exception as exc:  # noqa: BLE001 — classified into a user-facing reason
+        err = classify_llm_error(exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=err.user_message.split(".")[0] + ". Please try again later.",
+        )
+
+    # 4. Validate the model output before it reaches the UI
+    try:
+        match = re.search(r"\{.*\}", response_text, re.DOTALL)
+        data = json.loads(match.group(0) if match else response_text)
+        return MealScanResponse(**data)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The AI returned an unreadable analysis. Please try a clearer photo.",
+        )
+
+
+# ── Meal diary (stored in the database, per user) ─────────────────────────────
+
+
+@router.get("/meals", response_model=List[MealLogRead], summary="List logged meals for a day")
+def list_meals(
+    user: CurrentUser,
+    session: SessionDep,
+    day: Optional[date] = Query(None, description="YYYY-MM-DD, defaults to today (UTC)"),
+):
+    target = day or datetime.now(timezone.utc).date()
+    stmt = (
+        select(MealLog)
+        .where(MealLog.user_id == user.id, MealLog.logged_on == target)
+        .order_by(MealLog.created_at.desc())  # type: ignore[union-attr]
+    )
+    return session.exec(stmt).all()
+
+
+@router.post("/meals", response_model=MealLogRead, status_code=status.HTTP_201_CREATED, summary="Log a meal")
+def create_meal(data: MealLogCreate, user: CurrentUser, session: SessionDep):
+    meal = MealLog(
+        user_id=user.id,  # type: ignore[arg-type]
+        logged_on=data.logged_on or datetime.now(timezone.utc).date(),
+        slot=data.slot,
+        meal_name=data.meal_name,
+        calories=data.calories,
+        protein_g=data.protein_g,
+        carbs_g=data.carbs_g,
+        fat_g=data.fat_g,
+        food_items=[f.model_dump() for f in data.food_items] if data.food_items else None,
+    )
+    session.add(meal)
+    session.commit()
+    session.refresh(meal)
+    return meal
+
+
+@router.delete("/meals/{meal_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a logged meal")
+def delete_meal(meal_id: int, user: CurrentUser, session: SessionDep):
+    meal = session.get(MealLog, meal_id)
+    if meal is None or meal.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal not found.")
+    session.delete(meal)
+    session.commit()

@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session
 
 from app.core.database import get_session
+from app.modules.auth.dependencies import CurrentUser
 from app.modules.user import models, service
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -26,36 +27,36 @@ router = APIRouter(
 
 
 @router.get("/profile", response_model=models.UserProfile)
-def get_profile(session: SessionDep):
-    """Return the local user profile, creating defaults on first call."""
-    return service.get_or_create_default_profile(session)
+def get_profile(user: CurrentUser, session: SessionDep):
+    """Return the authenticated user's profile, creating defaults on first call."""
+    return service.get_or_create_profile(session, user.id)
 
 
 @router.put("/profile", response_model=models.UserProfile)
-def update_profile(data: models.UserProfileUpdate, session: SessionDep):
+def update_profile(data: models.UserProfileUpdate, user: CurrentUser, session: SessionDep):
     """Partially update the user profile."""
-    return service.update_profile(session, data)
+    return service.update_profile(session, user.id, data)
 
 
 # ── Chat Sessions ─────────────────────────────────────────────────────────────
 
 
 @router.get("/sessions", response_model=list[models.SessionSummary])
-def list_sessions(session: SessionDep):
-    """List all chat sessions, newest first."""
-    return service.list_sessions(session)
+def list_sessions(user: CurrentUser, session: SessionDep):
+    """List the user's chat sessions, newest first."""
+    return service.list_sessions(session, user.id)
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[models.MessageRead])
-def get_session_messages(session_id: str, session: SessionDep):
+def get_session_messages(session_id: str, user: CurrentUser, session: SessionDep):
     """Return all messages in a session in chronological order."""
-    return service.get_session_messages(session, session_id)
+    return service.get_session_messages(session, session_id, user.id)
 
 
 @router.delete("/sessions/{session_id}", status_code=204)
-def delete_session(session_id: str, session: SessionDep):
+def delete_session(session_id: str, user: CurrentUser, session: SessionDep):
     """Delete a session and all its messages."""
-    service.delete_session(session, session_id)
+    service.delete_session(session, session_id, user.id)
 
 
 # ── Somatotype Assessment ─────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ def get_somatotype_questions():
 
 
 @router.post("/predict-somatotype", response_model=models.SomatotypeQuizResponse)
-def predict_somatotype(req: models.SomatotypeQuizRequest, session: SessionDep):
+def predict_somatotype(req: models.SomatotypeQuizRequest, user: CurrentUser, session: SessionDep):
     """Analyze assessment answers and return the predicted somatotype with training/nutrition advice."""
-    return service.predict_somatotype(session, req)
+    return service.predict_somatotype(session, user.id, req)
 

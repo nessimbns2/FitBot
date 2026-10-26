@@ -14,7 +14,15 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '../context/ProfileContext';
-import { calculateMacros, getMealPlan, askNutrition, scanMealPhoto } from '../api/client';
+import {
+  calculateMacros,
+  getMealPlan,
+  askNutrition,
+  scanMealPhoto,
+  listMeals,
+  createMeal,
+  deleteMeal,
+} from '../api/client';
 import {
   PageHeader,
   Card,
@@ -83,6 +91,35 @@ interface MealPlanResponse {
   };
 }
 
+/** Meal diary row as returned by GET/POST /api/nutrition/meals. */
+interface ApiMeal {
+  id: number;
+  logged_on: string;
+  slot: string;
+  meal_name: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  food_items?: Array<{ name: string; portion_est: string; calories: number }> | null;
+  created_at: string;
+}
+
+interface LoggedMeal extends Omit<ApiMeal, 'food_items'> {
+  time: string;
+  food_items?: Array<{ name: string; portion_est: string; calories: number }>;
+}
+
+function toLoggedMeal(m: ApiMeal): LoggedMeal {
+  // created_at is UTC; show it in the viewer's local time.
+  const created = new Date(m.created_at.endsWith('Z') || m.created_at.includes('+') ? m.created_at : `${m.created_at}Z`);
+  return {
+    ...m,
+    food_items: m.food_items || undefined,
+    time: created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  };
+}
+
 export function NutritionView() {
   const navigate = useNavigate();
   const { profile } = useProfile();
@@ -132,28 +169,17 @@ export function NutritionView() {
     coaching_tip?: string;
   } | null>(null);
 
-  // Saved / Logged meals for today (persisted in localStorage)
-  const [loggedMeals, setLoggedMeals] = useState<Array<{
-    id: string;
-    meal_name: string;
-    slot: string;
-    calories: number;
-    protein_g: number;
-    carbs_g: number;
-    fat_g: number;
-    time: string;
-    image_url?: string;
-    food_items?: Array<{ name: string; portion_est: string; calories: number }>;
-  }>>(() => {
-    try {
-      const saved = localStorage.getItem('fitbot_logged_meals');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Logged meals for today (persisted per user in the database)
+  const [loggedMeals, setLoggedMeals] = useState<LoggedMeal[]>([]);
+  const [isSavingMeal, setIsSavingMeal] = useState<boolean>(false);
 
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    listMeals()
+      .then((rows: ApiMeal[]) => setLoggedMeals(rows.map(toLoggedMeal)))
+      .catch((err: any) => setToast({ type: 'error', message: err.message || 'Failed to load your meal diary' }));
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -293,51 +319,46 @@ export function NutritionView() {
     }
   };
 
-  const handleCommitLoggedMeal = () => {
-    if (!scanResult) return;
-    const newEntry = {
-      id: `meal_${Date.now()}`,
-      meal_name: scanResult.meal_name,
-      slot: targetMealSlot,
-      calories: scanResult.total_calories,
-      protein_g: scanResult.protein_g,
-      carbs_g: scanResult.carbs_g,
-      fat_g: scanResult.fat_g,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      image_url: scannedImage || undefined,
-      food_items: scanResult.food_items.map((f) => ({
-        name: f.name,
-        portion_est: f.portion_est,
-        calories: f.calories,
-      })),
-    };
-
-    const updated = [newEntry, ...loggedMeals];
-    setLoggedMeals(updated);
+  const handleCommitLoggedMeal = async () => {
+    if (!scanResult || isSavingMeal) return;
+    setIsSavingMeal(true);
     try {
-      localStorage.setItem('fitbot_logged_meals', JSON.stringify(updated));
-    } catch (e) {
-      console.warn('Failed to save to localStorage', e);
+      const created: ApiMeal = await createMeal({
+        meal_name: scanResult.meal_name,
+        slot: targetMealSlot,
+        calories: scanResult.total_calories,
+        protein_g: scanResult.protein_g,
+        carbs_g: scanResult.carbs_g,
+        fat_g: scanResult.fat_g,
+        food_items: scanResult.food_items.map((f) => ({
+          name: f.name,
+          portion_est: f.portion_est,
+          calories: f.calories,
+        })),
+      });
+      setLoggedMeals((prev) => [toLoggedMeal(created), ...prev]);
+      setToast({
+        type: 'success',
+        message: `Logged ${scanResult.meal_name} to today's nutrition diary!`,
+      });
+      setIsScannerOpen(false);
+      setScannedImage(null);
+      setScanResult(null);
+    } catch (err: any) {
+      setToast({ type: 'error', message: err.message || 'Could not save this meal' });
+    } finally {
+      setIsSavingMeal(false);
     }
-
-    setToast({
-      type: 'success',
-      message: `Logged ${scanResult.meal_name} to today's nutrition diary!`,
-    });
-    setIsScannerOpen(false);
-    setScannedImage(null);
-    setScanResult(null);
   };
 
-  const handleDeleteLoggedMeal = (id: string) => {
-    const updated = loggedMeals.filter((m) => m.id !== id);
-    setLoggedMeals(updated);
+  const handleDeleteLoggedMeal = async (id: number) => {
     try {
-      localStorage.setItem('fitbot_logged_meals', JSON.stringify(updated));
-    } catch (e) {
-      console.warn('Failed to save to localStorage', e);
+      await deleteMeal(id);
+      setLoggedMeals((prev) => prev.filter((m) => m.id !== id));
+      setToast({ type: 'success', message: 'Meal entry removed.' });
+    } catch (err: any) {
+      setToast({ type: 'error', message: err.message || 'Could not delete this meal' });
     }
-    setToast({ type: 'success', message: 'Meal entry removed.' });
   };
 
   // Macro Donut Segments
@@ -1021,6 +1042,7 @@ export function NutritionView() {
                     variant="primary"
                     size="sm"
                     onClick={handleCommitLoggedMeal}
+                    isLoading={isSavingMeal}
                     leftIcon={<Plus className="w-3.5 h-3.5" />}
                   >
                     Add to Today's Diary

@@ -30,16 +30,37 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "gemini"
     LLM_MODEL: str = "gemini-3.5-flash-lite"
     LLM_API_KEY: str = ""
+    LLM_TIMEOUT_SECONDS: float = 30.0
 
+    # ── Authentication (JWT) ───────────────────────────────────────────────────
+    # Override JWT_SECRET_KEY in .env — the default is only safe for local tests.
+    JWT_SECRET_KEY: str = "dev-only-insecure-secret-change-me"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 60 * 24
 
     # ── Embedding model ────────────────────────────────────────────────────────
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     # ── CORS ───────────────────────────────────────────────────────────────────
     CORS_ORIGINS: list[str] | str = ["http://localhost:5173"]
+    # Also accept any local dev port (Vite moves to 5174, 5175… when 5173 is taken).
+    CORS_ORIGIN_REGEX: str = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
 
     # ── Misc ───────────────────────────────────────────────────────────────────
     DEBUG: bool = False
+
+    @field_validator("DATABASE_URL", mode="after")
+    @classmethod
+    def use_psycopg3_driver(cls, v: str) -> str:
+        """Route plain postgres URLs to the installed psycopg (v3) driver."""
+        for prefix in ("postgresql://", "postgres://"):
+            if v.startswith(prefix):
+                return "postgresql+psycopg://" + v[len(prefix):]
+        return v
+
+    @property
+    def is_sqlite(self) -> bool:
+        return self.DATABASE_URL.startswith("sqlite")
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

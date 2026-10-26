@@ -61,11 +61,12 @@ class UnitSystem(str, Enum):
 
 
 class UserProfile(SQLModel, table=True):
-    """A single local user profile (id=1, created on first read)."""
+    """Biometric profile of an authenticated user (one per account, created on first read)."""
 
     __tablename__ = "user_profile"
 
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", unique=True, index=True)
     age: int = Field(default=25, ge=14, le=100)
     sex: Sex = Field(default=Sex.male)
     height_cm: float = Field(default=175.0, ge=120.0, le=230.0)
@@ -80,14 +81,12 @@ class UserProfile(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
     )
 
-    sessions: List["ChatSession"] = Relationship(back_populates="user")
-
 
 # ── ChatSession ───────────────────────────────────────────────────────────────
 
 
 class ChatSession(SQLModel, table=True):
-    """A named chat conversation belonging to the local user."""
+    """A named chat conversation belonging to one user."""
 
     __tablename__ = "chat_session"
 
@@ -95,7 +94,7 @@ class ChatSession(SQLModel, table=True):
         default_factory=lambda: str(uuid.uuid4()),
         primary_key=True,
     )
-    user_id: int = Field(foreign_key="user_profile.id")
+    user_id: int = Field(foreign_key="users.id", index=True)
     title: str = Field(default="New conversation")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -104,7 +103,6 @@ class ChatSession(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
     )
 
-    user: Optional["UserProfile"] = Relationship(back_populates="sessions")
     messages: List["ChatMessage"] = Relationship(back_populates="session")
 
 
@@ -117,7 +115,7 @@ class ChatMessage(SQLModel, table=True):
     __tablename__ = "chat_message"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    session_id: str = Field(foreign_key="chat_session.id")
+    session_id: str = Field(foreign_key="chat_session.id", index=True)
     role: str = Field(default="user")  # "user" | "assistant"
     content: str = Field(default="")
     sources: Optional[str] = Field(default=None)  # JSON-encoded list

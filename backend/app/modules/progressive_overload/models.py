@@ -21,7 +21,7 @@ class WorkoutSet(SQLModel, table=True):
     __tablename__ = "workout_sets"
 
     id: Optional[int] = SQLField(default=None, primary_key=True)
-    user_id: int = SQLField(default=1, index=True)
+    user_id: int = SQLField(foreign_key="users.id", index=True)
     exercise_id: str = SQLField(index=True)
     performed_at: datetime = SQLField(
         default_factory=lambda: datetime.now(timezone.utc),

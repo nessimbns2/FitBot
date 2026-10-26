@@ -12,17 +12,19 @@ backend_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_root))
 
 from app.core.config import settings
-# Import all SQLModel tables so they are registered on SQLModel.metadata
-import app.modules.user.models
-import app.modules.progressive_overload.models
+from app.core.database import import_all_models
+
+# Register every SQLModel table on SQLModel.metadata (users, profiles, chat, sets, meals, routines)
+import_all_models()
 
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep uvicorn/app loggers alive when migrations run at application startup.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Set URL from application settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
 
 target_metadata = SQLModel.metadata
 

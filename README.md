@@ -46,7 +46,12 @@
    - Physiological caloric floors (1200 kcal for females, 1500 kcal for males).
    - Automated refusal of anabolic steroids, SARMs, and unprescribed PEDs.
    - Medical disclaimer for injury, acute pain, or diagnostic inquiries.
-   - SlowAPI rate limiting (60 req/min general, 10 req/min chat streams).
+   - SlowAPI rate limiting (60 req/min general, 20 req/min chat, 10 req/min login/register).
+4. **Accounts & Privacy**:
+   - Email/password accounts (bcrypt + JWT); all data lives in PostgreSQL, scoped per user, deleted in cascade with the account.
+   - Personal identifiers (emails, phones, the user's name…) are masked before any LLM call; LLM output is validated before display.
+   - Typed AI errors (missing key, quota, timeout) with a degraded mode that answers from the retrieved PDF excerpts.
+   - Details: [report/ajouts_auth_postgres_ia.md](report/ajouts_auth_postgres_ia.md).
 
 ---
 
@@ -55,27 +60,38 @@
 ### 1. Prerequisites
 - Python 3.11+
 - Node.js 20+ and npm
+- PostgreSQL 16+ (pgAdmin optional)
+- Git LFS (`git lfs pull`) — the PDF manuals are stored with LFS; a GitHub ZIP download only contains pointer files
 
-### 2. Backend Setup
+### 2. Database (PostgreSQL)
+Create the `fitbot` role and the `fitbot_db` database once — see [database/README.md](database/README.md).
+
+### 3. Backend Setup
 ```bash
 cd backend
 
-# Install dependencies
-pip install -r requirements_v2.txt
-pip install slowapi
+# Isolated environment + dependencies
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements_v2.txt   # Linux/macOS: .venv/bin/python
 
-# Run database migrations
-alembic upgrade head
+# Configuration: copy and fill DATABASE_URL, LLM_API_KEY, JWT_SECRET_KEY
+cp .env.example .env
 
-# Ingest PDF manuals into vectorstore (one-time or rebuild)
-python scripts/ingest_docs.py
+# Create / upgrade the tables (also done automatically at API startup)
+.venv/Scripts/python -m alembic upgrade head
+
+# Build the category FAISS indexes from the PDF manuals (one-time or rebuild)
+.venv/Scripts/python -m app.modules.rag_core.ingest --rebuild
+
+# Optional: demo account with 4 weeks of data (credentials in scripts/seed_demo.py)
+.venv/Scripts/python scripts/seed_demo.py
 
 # Launch FastAPI development server
-uvicorn main_v2:app --reload --port 8000
+.venv/Scripts/python -m uvicorn main_v2:app --reload --port 8000
 ```
 Backend API will be accessible at: `http://localhost:8000` (Docs at `http://localhost:8000/docs`).
 
-### 3. Frontend Setup
+### 4. Frontend Setup
 ```bash
 cd frontend
 
@@ -126,10 +142,20 @@ Evaluates 20 real fitness and nutrition questions against the indexed PDF manual
 
 ## 📡 API Endpoints Overview
 
+All endpoints except `/api/auth/register`, `/api/auth/login` and `/api/health*` require
+`Authorization: Bearer <access_token>`; every query is scoped to the authenticated user.
+
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/health` | Healthcheck liveness probe |
-| `GET` | `/api/user/profile` | Retrieve default profile with biometrics & goals |
+| `GET` | `/api/health/ready` | Readiness: database, LLM key configured, vector indexes |
+| `POST` | `/api/auth/register` | Create an account (bcrypt) and return a JWT |
+| `POST` | `/api/auth/login` | Email + password → JWT (rate limited) |
+| `GET` / `PUT` / `DELETE` | `/api/auth/me` | Current account / rename / delete account and all its data |
+| `POST` | `/api/auth/change-password` | Change password (checks the current one) |
+| `GET` / `POST` / `DELETE` | `/api/nutrition/meals` | Meal diary (stored in PostgreSQL) |
+| `GET` / `PUT` / `DELETE` | `/api/exercises/routine` | Saved training routine (stored in PostgreSQL) |
+| `GET` | `/api/user/profile` | Retrieve the user's profile with biometrics & goals |
 | `PUT` | `/api/user/profile` | Update user profile (height, weight, body fat, etc.) |
 | `GET` | `/api/user/sessions` | List active chat sessions |
 | `POST` | `/api/nutrition/calculate` | Compute exact BMR, TDEE, calories, and macros |

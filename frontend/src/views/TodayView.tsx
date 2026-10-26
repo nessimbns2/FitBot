@@ -12,6 +12,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '../context/ProfileContext';
+import { useAuth } from '../context/AuthContext';
 import {
   calculateMacros,
   getWeeklyVolume,
@@ -45,6 +46,8 @@ import {
 
 export function TodayView() {
   const { profile } = useProfile();
+  const { user } = useAuth();
+  const firstName = user?.full_name?.split(/\s+/)[0] || 'Athlete';
   const navigate = useNavigate();
 
   // Macro Target State
@@ -148,7 +151,7 @@ export function TodayView() {
       <div className="max-w-[1200px] mx-auto space-y-8 pb-20">
         {/* Page Header */}
         <PageHeader
-          title={`Welcome back, ${profile?.sex === 'female' ? 'Athlete ♀' : 'Athlete ♂'}`}
+          title={`Welcome back, ${firstName}`}
           description="Here is your daily training readiness snapshot: calibrated nutrition targets, upcoming overload objectives, and weekly volume tracking."
           badge={<Badge variant="accent">Today's Focus</Badge>}
           actionSlot={

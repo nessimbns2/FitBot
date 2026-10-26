@@ -6,6 +6,8 @@ RAG core engine: VectorStore (category FAISS loader & searcher), LLM clients, an
 from __future__ import annotations
 
 import json
+import logging
+import time
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -14,9 +16,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import faiss
 import numpy as np
+from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from app.core.config import settings
 from app.modules.rag_core.ingest import FakeEmbedder, SentenceTransformerEmbedder
+
+logger = logging.getLogger(__name__)
 
 
 # ── Search Result Type ────────────────────────────────────────────────────────
@@ -229,22 +234,74 @@ class FakeLLMClient(LLMClient):
             yield word if i == 0 else f" {word}"
 
 
-class GeminiLLMClient(LLMClient):
-    """Google Gemini LLM client implementation with multi-model fallback."""
+class LLMUnavailableError(RuntimeError):
+    """Raised when the LLM provider cannot produce an answer.
 
+    `reason` is a stable machine code (missing_api_key, invalid_api_key, quota_exceeded,
+    timeout, blocked, provider_error); `user_message` is safe to show in the UI.
+    """
+
+    USER_MESSAGES = {
+        "missing_api_key": "The AI service is not configured (no API key). Showing evidence from the documents instead.",
+        "invalid_api_key": "The AI service rejected the API key. Showing evidence from the documents instead.",
+        "quota_exceeded": "The AI service quota is exhausted for now. Showing evidence from the documents instead.",
+        "timeout": "The AI service took too long to answer. Showing evidence from the documents instead.",
+        "blocked": "The AI service declined to answer this request.",
+        "provider_error": "The AI service is temporarily unavailable. Showing evidence from the documents instead.",
+    }
+
+    def __init__(self, reason: str, detail: str = ""):
+        self.reason = reason if reason in self.USER_MESSAGES else "provider_error"
+        self.user_message = self.USER_MESSAGES[self.reason]
+        super().__init__(f"{self.reason}: {detail}" if detail else self.reason)
+
+
+def classify_llm_error(exc: Exception) -> LLMUnavailableError:
+    """Map a provider/SDK exception to an LLMUnavailableError with a stable reason."""
+    if isinstance(exc, LLMUnavailableError):
+        return exc
+    name = type(exc).__name__
+    text = str(exc).lower()
+    if name in ("DeadlineExceeded", "TimeoutError", "ReadTimeout", "ConnectTimeout") or "timed out" in text or "deadline" in text:
+        return LLMUnavailableError("timeout", name)
+    if name in ("ResourceExhausted", "TooManyRequests") or "429" in text or "quota" in text:
+        return LLMUnavailableError("quota_exceeded", name)
+    if name in ("Unauthenticated", "PermissionDenied") or "api key not valid" in text or "api_key_invalid" in text:
+        return LLMUnavailableError("invalid_api_key", name)
+    return LLMUnavailableError("provider_error", name)
+
+
+def degraded_answer(err: LLMUnavailableError, passages: List[SearchResult]) -> str:
+    """Answer built only from retrieved evidence when the LLM cannot be reached."""
+    if not passages:
+        return err.user_message
+    excerpts = "\n".join(
+        f"- {' '.join(p.text.split())[:280]}… *(Source: {p.source}, p. {p.page})*"
+        for p in passages[:3]
+    )
+    return f"⚠️ {err.user_message}\n\n{excerpts}"
+
+
+
+class GeminiLLMClient(LLMClient):
+    """Google Gemini LLM client with multi-model fallback, request timeout and typed errors."""
+
+    # Tried in order after the configured model. Verified available with the project key
+    # (Oct 2026); retired models (gemini-2.5-*) answer 404 and slow ones only burn the budget.
     FALLBACK_MODELS = [
         "gemini-3.5-flash-lite",
-        "gemini-2.5-flash-lite",
-        "gemini-3.8-flash",
-        "gemini-2.5-flash",
+        "gemini-3.5-flash",
+        "gemini-flash-lite-latest",
     ]
+    # Below this many seconds left in the call budget, don't start another model attempt.
+    MIN_ATTEMPT_SECONDS = 2.0
 
     def __init__(self, model_name: str = "gemini-3.5-flash-lite", api_key: Optional[str] = None):
         if model_name in ("gemini-2.0-flash", "gemini-2.5-flash"):
             model_name = "gemini-3.5-flash-lite"
         self.model_name = model_name
-        self.api_key = api_key or settings.LLM_API_KEY
-        self._client = None
+        self.api_key = api_key if api_key is not None else settings.LLM_API_KEY
+        self.timeout = settings.LLM_TIMEOUT_SECONDS
 
     def _get_client(self, model_override: Optional[str] = None):
         target_model = model_override or self.model_name
@@ -252,84 +309,110 @@ class GeminiLLMClient(LLMClient):
             target_model = "gemini-3.5-flash-lite"
 
         import google.generativeai as genai
-        if self.api_key:
-            genai.configure(api_key=self.api_key)
+        genai.configure(api_key=self.api_key)
         return genai.GenerativeModel(model_name=target_model)
 
-    def complete(self, messages: List[Dict[str, str]], system: str) -> str:
+    def _models_to_try(self) -> List[str]:
+        return [self.model_name] + [m for m in self.FALLBACK_MODELS if m != self.model_name]
+
+    @staticmethod
+    def _build_prompt(messages: List[Dict[str, str]], system: str) -> str:
         prompt_parts = [f"SYSTEM: {system}\n\n"]
         for m in messages:
             role = "USER" if m.get("role") == "user" else "ASSISTANT"
             prompt_parts.append(f"{role}: {m.get('content')}\n")
         prompt_parts.append("ASSISTANT: ")
-        full_prompt = "".join(prompt_parts)
+        return "".join(prompt_parts)
 
-        models_to_try = [self.model_name] + [m for m in self.FALLBACK_MODELS if m != self.model_name]
+    def _ensure_key(self) -> None:
+        if not (self.api_key or "").strip():
+            raise LLMUnavailableError("missing_api_key")
 
-        for model in models_to_try:
+    def _attempts(self):
+        """Yield (model, per-attempt timeout) while the overall call budget lasts.
+
+        LLM_TIMEOUT_SECONDS bounds the WHOLE call, fallbacks included, so a user never
+        waits N models x timeout.
+        """
+        deadline = time.monotonic() + self.timeout
+        for model in self._models_to_try():
+            remaining = deadline - time.monotonic()
+            if remaining < self.MIN_ATTEMPT_SECONDS:
+                return
+            yield model, remaining
+
+    def complete(self, messages: List[Dict[str, str]], system: str) -> str:
+        self._ensure_key()
+        full_prompt = self._build_prompt(messages, system)
+        last_error: Optional[LLMUnavailableError] = None
+
+        for model, budget in self._attempts():
             try:
                 client = self._get_client(model)
-                response = client.generate_content(full_prompt)
-                if response and response.text:
-                    return response.text
-            except Exception:
-                continue
+                response = client.generate_content(
+                    full_prompt, request_options={"timeout": budget}
+                )
+                text = _response_text(response)
+                if text:
+                    return text
+                last_error = LLMUnavailableError("blocked", model)
+            except Exception as exc:  # noqa: BLE001 — every SDK error is classified below
+                last_error = classify_llm_error(exc)
+                logger.warning("Gemini model %s failed: %s", model, last_error)
+                if last_error.reason in ("missing_api_key", "invalid_api_key"):
+                    break
 
-        # If all external API calls fail (e.g. daily quota reached), provide evidence-grounded response
-        return (
-            "I'm here as your FitBot evidence-based coach! While our AI model is experiencing high demand right now, "
-            "make sure to follow evidence-based principles: prioritize progressive overload, "
-            "aim for 1.6-2.2g of protein per kg of bodyweight, and get 7-9 hours of quality sleep."
-        )
+        raise last_error or LLMUnavailableError("timeout")
 
     async def stream(
         self, messages: List[Dict[str, str]], system: str
     ) -> AsyncIterator[str]:
-        prompt_parts = [f"SYSTEM: {system}\n\n"]
-        for m in messages:
-            role = "USER" if m.get("role") == "user" else "ASSISTANT"
-            prompt_parts.append(f"{role}: {m.get('content')}\n")
-        prompt_parts.append("ASSISTANT: ")
-        full_prompt = "".join(prompt_parts)
+        self._ensure_key()
+        full_prompt = self._build_prompt(messages, system)
+        last_error: Optional[LLMUnavailableError] = None
 
-        models_to_try = [self.model_name] + [m for m in self.FALLBACK_MODELS if m != self.model_name]
-
-        streamed_any = False
-
-        for model in models_to_try:
+        for model, budget in self._attempts():
+            streamed_any = False
             try:
                 client = self._get_client(model)
-                response = client.generate_content(full_prompt, stream=True)
-                for chunk in response:
-                    try:
-                        text = chunk.text
-                        if text:
-                            streamed_any = True
-                            yield text
-                    except (AttributeError, ValueError):
-                        try:
-                            if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
-                                for part in chunk.candidates[0].content.parts:
-                                    if hasattr(part, "text") and part.text:
-                                        streamed_any = True
-                                        yield part.text
-                        except Exception:
-                            pass
+                # The Gemini SDK is blocking: run it in the threadpool so one streamed answer
+                # never freezes the event loop (and every other request) while it is generated.
+                response = await run_in_threadpool(
+                    client.generate_content, full_prompt, stream=True, request_options={"timeout": budget}
+                )
+                async for chunk in iterate_in_threadpool(iter(response)):
+                    text = _response_text(chunk)
+                    if text:
+                        streamed_any = True
+                        yield text
                 if streamed_any:
                     return
-            except Exception:
-                continue
+                last_error = LLMUnavailableError("blocked", model)
+            except Exception as exc:  # noqa: BLE001
+                last_error = classify_llm_error(exc)
+                logger.warning("Gemini streaming with %s failed: %s", model, last_error)
+                if streamed_any:
+                    # Part of the answer was already sent: stop rather than restart on another model.
+                    return
+                if last_error.reason in ("missing_api_key", "invalid_api_key"):
+                    break
 
-        if not streamed_any:
-            # Fallback coaching message if all API attempts hit quota or failed
-            fallback_text = (
-                "I'm here as your FitBot evidence-based coach! What fitness or nutrition goals "
-                "can I help you work on today? Feel free to ask about workout routines, exercise technique, "
-                "or log your sets directly here."
-            )
-            for word in fallback_text.split(" "):
-                yield word + " "
+        raise last_error or LLMUnavailableError("timeout")
 
+
+def _response_text(response: Any) -> str:
+    """Extract text from a Gemini response/chunk without raising on blocked candidates."""
+    try:
+        text = response.text
+        if text:
+            return text
+    except (AttributeError, ValueError):
+        pass
+    try:
+        parts = response.candidates[0].content.parts
+        return "".join(getattr(p, "text", "") or "" for p in parts)
+    except (AttributeError, IndexError, TypeError):
+        return ""
 
 
 _ACTIVE_LLM_CLIENT: Optional[LLMClient] = None
