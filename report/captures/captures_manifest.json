@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-26",
+  "viewport": "1440x940",
+  "data": "Données fictives de démonstration",
+  "captures": [
+    "01_login",
+    "02_inscription",
+    "03_tableau_de_bord",
+    "04_profil",
+    "05_questionnaire_somatotype",
+    "06_blueprint",
+    "07_coach_rag",
+    "08_sources_rag",
+    "09_nutrition_macros",
+    "10_journal_alimentaire",
+    "11_saisie_repas",
+    "12_suggestions_repas",
+    "13_scanner_vision",
+    "14_programme",
+    "15_bibliotheque",
+    "16_technique",
+    "17_suivi_progression",
+    "18_diagnostic_plateau",
+    "19_securite_compte",
+    "20_mobile",
+    "21_assistant_programme"
+  ],
+  "photo": {
+    "author": "Cupofjoy",
+    "license": "CC0 1.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Salad_in_a_bowl.jpg"
+  }
+}

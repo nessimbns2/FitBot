@@ -1,0 +1,192 @@
+{
+  "captured_at": "2026-10-26T10:23:34.091Z",
+  "base_url": "http://localhost:5173",
+  "synthetic_demo_data": true,
+  "screenshots": [
+    {
+      "file": "01-login.png",
+      "title": "Connexion sécurisée",
+      "route": "/login"
+    },
+    {
+      "file": "02-register.png",
+      "title": "Inscription et validation du mot de passe",
+      "route": "/register"
+    },
+    {
+      "file": "03-dashboard.png",
+      "title": "Tableau de bord personnalisé",
+      "route": "/"
+    },
+    {
+      "file": "04-coach-rag.png",
+      "title": "Coach RAG et réponse générée en streaming",
+      "route": "/coach"
+    },
+    {
+      "file": "05-coach-sources.png",
+      "title": "Sources documentaires, pages et scores de pertinence",
+      "route": "/coach"
+    },
+    {
+      "file": "06-profile.png",
+      "title": "Profil biométrique et objectifs",
+      "route": "/profile"
+    },
+    {
+      "file": "07-blueprint.png",
+      "title": "Bilan Athlete Blueprint personnalisé",
+      "route": "/profile"
+    },
+    {
+      "file": "08-somatotype-quiz.png",
+      "title": "Questionnaire morphologique à cinq questions",
+      "route": "/profile"
+    },
+    {
+      "file": "09-somatotype-result.png",
+      "title": "Résultat du questionnaire et synthèse IA",
+      "route": "/profile"
+    },
+    {
+      "file": "10-account-security.png",
+      "title": "Gestion du compte et de la sécurité",
+      "route": "/profile"
+    },
+    {
+      "file": "11-nutrition-targets.png",
+      "title": "Calculs nutritionnels et distribution des repas",
+      "route": "/nutrition"
+    },
+    {
+      "file": "12-food-diary.png",
+      "title": "Journal alimentaire et comparaison aux objectifs",
+      "route": "/nutrition"
+    },
+    {
+      "file": "13-food-entry.png",
+      "title": "Formulaire de saisie et validation du repas",
+      "route": "/nutrition"
+    },
+    {
+      "file": "14-meal-suggestions.png",
+      "title": "Suggestions IA adaptées au budget nutritionnel restant",
+      "route": "/nutrition",
+      "recaptured_at": "2026-10-26"
+    },
+    {
+      "file": "15-vision-upload.png",
+      "title": "Scanner de repas : import de la photographie",
+      "route": "/nutrition"
+    },
+    {
+      "file": "15b-vision-result.png",
+      "title": "Résultat réel Gemini Vision sur une photo de démonstration",
+      "route": "/nutrition"
+    },
+    {
+      "file": "16-workout-planner.png",
+      "title": "Planification de routine et matrice du volume",
+      "route": "/workouts"
+    },
+    {
+      "file": "17-routine-ai.png",
+      "title": "Analyse IA du volume et proposition d’exercice",
+      "route": "/workouts"
+    },
+    {
+      "file": "18-exercise-library.png",
+      "title": "Catalogue filtrable des exercices",
+      "route": "/workouts"
+    },
+    {
+      "file": "19-exercise-technique.png",
+      "title": "Fiche technique et accès au coach spécialisé",
+      "route": "/workouts",
+      "captured_at": "2026-10-26T10:30:17.810Z",
+      "recaptured_at": "2026-10-26"
+    },
+    {
+      "file": "20-tracker-diagnosis.png",
+      "title": "Diagnostic de plateau et prescription calculée",
+      "route": "/tracker"
+    },
+    {
+      "file": "21-deload-draft.png",
+      "title": "Décharge : préremplissage des séries avant confirmation",
+      "route": "/tracker"
+    },
+    {
+      "file": "22-performance-history.png",
+      "title": "Courbe de performance et séances enregistrées",
+      "route": "/tracker"
+    },
+    {
+      "file": "23-mobile-dashboard.png",
+      "title": "Interface mobile et navigation responsive",
+      "route": "/"
+    }
+  ],
+  "api_checks": [
+    {
+      "path": "/api/auth/register",
+      "method": "POST",
+      "status": 201,
+      "elapsed_ms": 255
+    },
+    {
+      "path": "/api/user/profile",
+      "method": "PUT",
+      "status": 200,
+      "elapsed_ms": 13
+    },
+    {
+      "path": "/api/overload/log-set",
+      "method": "POST",
+      "status": 201,
+      "elapsed_ms": 48
+    },
+    {
+      "path": "/api/nutrition/log",
+      "method": "POST",
+      "status": 201,
+      "elapsed_ms": 12
+    },
+    {
+      "path": "/api/nutrition/log",
+      "method": "POST",
+      "status": 201,
+      "elapsed_ms": 12
+    },
+    {
+      "path": "/api/exercises/generate-routine",
+      "method": "POST",
+      "status": 200,
+      "elapsed_ms": 9
+    },
+    {
+      "path": "/api/exercises/routine",
+      "method": "PUT",
+      "status": 200,
+      "elapsed_ms": 11
+    },
+    {
+      "path": "/api/user/somatotype-questions",
+      "method": "GET",
+      "status": 200,
+      "elapsed_ms": 19
+    },
+    {
+      "path": "/api/auth/me",
+      "method": "DELETE",
+      "status": 204,
+      "elapsed_ms": 299
+    }
+  ],
+  "photo_credit": {
+    "author": "Anna Pelzer",
+    "source": "https://unsplash.com/photos/bowl-of-vegetable-salads-IGfIGP5ONV0",
+    "license": "Unsplash License",
+    "local_file": "demo-meal.jpg"
+  }
+}

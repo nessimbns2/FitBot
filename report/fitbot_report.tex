@@ -15,8 +15,11 @@
 \setlength{\parindent}{0pt}  % Pas d'indentation superflue
 
 % ── Mathématiques, Graphismes & Tableaux ──────────────────────────────────────
-\usepackage{amsmath,amssymb}
+\usepackage{amsmath}
 \usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{placeins}
 \usepackage{xcolor}
 \usepackage{booktabs}
 \usepackage{tabularx}
@@ -42,8 +45,8 @@
 % ── En-têtes & Pieds de Page Aérés ────────────────────────────────────────────
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small\textbf{\textsf{\color{brandpurple}FitBot}} \textsf{\color{textgray}| Architecture IA, Prompts, Tokens \& Économie}}
-\fancyhead[R]{\small\textsf{\color{textgray}Rapport Technique Officiel}}
+\fancyhead[L]{\small\textbf{\textsf{\color{brandpurple}FitBot}} \textsf{\color{textgray}| Architecture web et sorties IA}}
+\fancyhead[R]{\small\textsf{\color{textgray}Rapport technique}}
 \fancyfoot[C]{\textsf{\color{textgray}\thepage}}
 \renewcommand{\headrulewidth}{0.5pt}
 \renewcommand{\footrulewidth}{0.4pt}
@@ -114,381 +117,458 @@
 }
 
 % ── Ajustement des Tableaux ───────────────────────────────────────────────────
-\renewcommand{\arraystretch}{1.25}
+\renewcommand{\arraystretch}{1.18}
+\setlength{\emergencystretch}{4em}
+\Urlmuskip=0mu plus 1mu
+\captionsetup{font=small,labelfont=bf}
+\newcommand{\screen}[4][0.47\textheight]{%
+  \begin{figure}[H]\centering
+  \includegraphics[width=\linewidth,height=#1,keepaspectratio]{images/#2.png}
+  \caption{#3}\label{#4}
+  \end{figure}%
+}
+
 
 % ── Informations de Titre ─────────────────────────────────────────────────────
 \title{
   \vspace{-1.0cm}
   {\Huge \textbf{\textsf{FitBot : Système d'Ingénierie Sportive et Nutritionnelle Assistée par IA}}} \\[0.5cm]
-  {\Large \textbf{\textsf{Architecture Modulaire, Ingénierie des Prompts, Consommation de Jetons \& Analyse Économique}}} \\[0.7cm]
+  {\Large \textbf{\textsf{Version PostgreSQL, Nouveaux Modules IA et Démonstration Illustrée}}} \\[0.7cm]
 }
 
 \author{
   \textbf{Équipe d'Ingénierie FitBot} \\
   \texttt{https://github.com/nessimbns2/FitBot}
 }
-\date{\today}
+\date{26 octobre 2026}
 
 % ──────────────────────────────────────────────────────────────────────────────
 \begin{document}
-
 \maketitle
-
 \begin{abstract}
-\noindent Les modèles de langage à grande échelle (LLMs) conventionnels présentent des limites structurelles lorsqu'ils sont appliqués au domaine des sciences du sport : hallucinations fréquentes sur les calculs caloriques, recommandations de régimes restrictifs dangereux, prescriptions biomécaniques incohérentes et absence d'ancrage documentaire vérifiable. \textbf{FitBot} est un système d'ingénierie sportive et nutritionnelle fondé sur la preuve scientifique, conçu pour éliminer ces écueils via le principe cardinal : \textit{\og Les chiffres ne proviennent jamais du LLM \fg{}}.
+FitBot est une application web de coaching sportif et nutritionnel associant React, FastAPI, PostgreSQL et un service Gemini. Elle combine un noyau de calcul déterministe, une recherche documentaire RAG et plusieurs tâches de génération contrôlées. Cette version intègre l'authentification, la persistance par utilisateur, le journal alimentaire, les suggestions de repas, le bilan \textit{Athlete Blueprint} et le diagnostic de plateau avec gestion de la décharge.
 
-Ce rapport technique détaille l'ensemble des modules d'intelligence artificielle pilotés par des prompts au sein de FitBot : (1) le \textbf{Coach Conversationnel RAG} à classification d'intentions et streaming temps réel SSE ; (2) l'\textbf{Assistant IA de Routine} qui analyse les déficits volumétriques hebdomadaires d'hypertrophie ($10$ à $20$ séries/muscle) et formule des recommandations sans redondance ; (3) le \textbf{Scanner de Repas IA (Vision Multimodale)} sous Gemini 2.5 Flash qui décompose une assiette photographiée en macro-nutriments structurés en JSON ; (4) le moteur de \textbf{Surcharge Progressive} et d'analyse de stagnation ; et (5) le \textbf{Guidage Biotypologique} (somatotype). 
-
-Enfin, une analyse rigoureuse de la \textbf{consommation de jetons (tokens)} et de la \textbf{viabilité financière} démontre qu'une architecture découplée avec filtrage vectoriel $k=3$ et prompts hautement contraints réduit la facture API de plus de $75\,\%$ par rapport aux approches naïves, offrant un coût moyen de seulement \textbf{0,0425\,\$ par utilisateur actif mensuel}.
+Le rapport présente les fonctionnalités avec des captures réelles de l'application, décrit leurs entrées et sorties, puis explique comment améliorer la pertinence, la structure et la robustesse des réponses IA. Il distingue les \textbf{cibles calculées en Python} des \textbf{estimations alimentaires générées par le modèle}. Les résultats de tests et de recherche documentaire sont accompagnés de leur protocole ; aucun coût API ou taux de fiabilité non mesuré n'est présenté comme un résultat expérimental.
 \end{abstract}
-
-\vspace{0.4cm}
+\begin{infobox}{Périmètre de cette version}
+État étudié : fusion \texttt{43a4795}, complétée par ce rapport. Vérifications locales du 26 octobre 2026 : \textbf{341 tests réussis, 2 ignorés}, compilation du frontend et contrôle TypeScript réussis. Les captures utilisent uniquement des données de démonstration et un compte temporaire supprimé à la fin de la session.
+\end{infobox}
+\clearpage
 \tableofcontents
-\vspace{0.6cm}
-\hrule
-\vspace{0.8cm}
+\clearpage
 
-% ──────────────────────────────────────────────────────────────────────────────
-\section{Introduction et Problématique}
+\section{Objectif et évolution du projet}
+\subsection{Problème traité}
+Un assistant sportif fondé uniquement sur un modèle de langage peut produire un texte fluide tout en inventant des calories, des charges ou des références. FitBot répartit donc les responsabilités : les règles numériques restent dans le backend et l'IA intervient pour expliquer des résultats, proposer des idées ou interpréter une photographie. L'application garde une finalité pédagogique ; ses sorties ne constituent pas un diagnostic médical.
 
-L'assistance sportive et nutritionnelle automatisée touche directement à l'intégrité physique et métabolique des utilisateurs. Bien que les modèles de langage génératifs actuels excellent dans la fluidité conversationnelle, leur utilisation sans garde-fous stricts engendre des dérives critiques :
+Le projet correspond au cas d'une \textbf{application web métier enrichie d'IA} décrit dans le sujet du mini-projet : un frontend, un backend, une base de profils, des prompts identifiables, une gestion des erreurs du fournisseur et une démonstration exécutable dans le navigateur.
 
-\begin{itemize}[leftmargin=1.2cm]
-    \item \textbf{Hallucinations Mathématiques et Métaboliques} : Les LLMs ne procèdent pas par calcul algébrique mais par complétion probabiliste de jetons. Un utilisateur sollicitant un déficit calorique peut se voir attribuer des grammes de macro-nutriments dont la somme énergétique ($4 \times \text{protéines} + 4 \times \text{glucides} + 9 \times \text{lipides}$) contredit les calories totales indiquées par plusieurs centaines de kilocalories.
-    \item \textbf{Validation de Régimes Dangereux} : Les agents conversationnels généralistes valident régulièrement des diètes hypocaloriques extrêmes ($< 1\,200$\,kcal/j chez la femme, $< 1\,500$\,kcal/j chez l'homme), causant fonte musculaire, dérégulation thyroïdienne et aménorrhée.
-    \item \textbf{Prescriptions Dopantes et Responsabilité Médicale} : De nombreux chatbots non bridés émettent des conseils de dosage pour les stéroïdes anabolisants ou SARMs, tout en posant des diagnostics illégitimes en cas de douleur articulaire aiguë.
-    \item \textbf{Programmes d'Entraînement Arbitraires} : Les routines générées manquent d'équilibrage volumétrique, ignorent les principes d'adaptation hypertrophique et ne proposent aucun protocole formalisé de surcharge progressive.
-\end{itemize}
+\subsection{Ce qui a changé}
+\begin{table}[H]
+\small\begin{tabularx}{\linewidth}{p{3.2cm}XX}
+\toprule
+\textbf{Domaine} & \textbf{Version initiale} & \textbf{Version documentée} \\
+\midrule
+Comptes & Profil local partagé & Inscription, connexion JWT et données par compte \\
+Persistance & Repas et routine dans le navigateur & PostgreSQL et migrations Alembic \\
+Conversation & Réponses documentaires & Historique, mémoire récente, SSE et sources dépliables \\
+Nutrition & Calculs et scanner & Journal éditable, bilan quotidien et suggestions IA \\
+Profil & Mensurations et somatotype & Questionnaire et bilan Athlete Blueprint \\
+Entraînement & Routine et progression & Analyse de volume, plateau et décharge \\
+Robustesse & Réponse générique en cas d'échec & Erreurs explicites, validation et repli documentaire \\
+\bottomrule
+\end{tabularx}
+\caption{Évolutions fonctionnelles et techniques intégrées.}
+\end{table}
 
-\textbf{FitBot} résout ces défaillances en scindant radicalement l'application : tous les calculs sont exécutés de manière déterministe en Python, tandis que les prompts IA sont spécialisés, paramétrés et enrichis de contexte scientifique vérifié.
-
-% ──────────────────────────────────────────────────────────────────────────────
-\section{Architecture Globale et Principe Fondateur}
-
-\begin{principlebox}{Le Principe Directeur de FitBot}
-\textbf{Règle d'Or} : \textit{Les chiffres ne proviennent jamais du modèle de langage (LLM).} \\
-Chaque calorie, chaque gramme de protéine, chaque répétition maximale théorique (1RM) et chaque incrément de charge est calculé par des formules scientifiques validées. L'IA a pour mission exclusive de synthétiser, expliquer, vulgariser et contextualiser ces résultats à partir des guides de référence indexés.
+\subsection{Répartition entre calcul et génération}
+\begin{principlebox}{Principe de responsabilité numérique}
+Les objectifs énergétiques, la répartition des macronutriments, les totaux du journal, les séries et les charges cibles sont calculés par Python. En revanche, la composition et les portions d'une photo, ainsi que les macros d'une idée de repas, sont des \textbf{estimations du modèle}, à vérifier et à corriger avant enregistrement.
 \end{principlebox}
+Cette distinction corrige la formulation trop générale \og les chiffres ne proviennent jamais du LLM \fg{}. Elle est exacte pour les prescriptions déterministes, mais pas pour les estimations du scanner ou du générateur d'idées alimentaires.
 
-\begin{figure}[h!]
-\centering
-\begin{tcolorbox}[colback=lightgray,colframe=bordergray,width=\textwidth,arc=2mm]
-\small\ttfamily
-+-----------------------------------------------------------------------+\\
-|                        Frontend React 19 + Vite                       |\\
-|  Coach Chat  |  Nutrition \& Repas  |  Entraînements  |  Scanner Vision|\\
-+-----------------------------------+-+---------------------------------+\\
-                                    | | Requêtes HTTP / Flux SSE\\
-+-----------------------------------v-v---------------------------------+\\
-|                        Backend FastAPI Modulaire                      |\\
-|                                                                       |\\
-|  [Classificateur d'Intention \& Extracteur d'Entités]                  |\\
-|     --> Intention : nutrition | technique | surcharge | logging       |\\
-|                                                                       |\\
-|  +-------------------------------+   +-----------------------------+  |\\
-|  |     Moteurs Déterministes     |   |   RAG Isolé par Catégorie   |  |\\
-|  | - Mifflin-St Jeor / Katch BMR |   | - nutrition.faiss           |  |\\
-|  | - TDEE \& Seuils Physiologiques|  | - exercise.faiss            |  |\\
-|  | - Double Progression (+2.5 kg)|   | - SentenceTransformers      |  |\\
-|  | - Matrice Volume Hypertrophie |   | - Recherche Top-3 Cosinus   |  |\\
-|  +-------------------------------+   +-----------------------------+  |\\
-|                                  |   |                                |\\
-|  +-------------------------------v---v-----------------------------+  |\\
-|  |            Synthétiseur de Prompts Structurés \& Contraints     |  |\\
-|  |   [Persona] + [Faits] + [Chiffres] + [Contexte] + [Règles Sécu] |  |\\
-|  +-------------------------------+---------------------------------+  |\\
-|                                  |                                    |\\
-|  +-------------------------------v---------------------------------+  |\\
-|  |       Google Gemini 2.5 Flash (API Texte SSE \& Vision JSON)     |  |\\
-|  +-----------------------------------------------------------------+  |\\
-+-----------------------------------------------------------------------+
-\end{tcolorbox}
-\caption{Architecture globale du système modulaire FitBot.}
-\label{fig:arch}
-\end{figure}
+\clearpage
+\section{Architecture et circulation des données}
+\subsection{Stack et découpage modulaire}
+\begin{table}[H]
+\small\begin{tabularx}{\linewidth}{p{3cm}X}
+\toprule
+\textbf{Couche} & \textbf{Rôle dans l'application} \\
+\midrule
+React 19 / Vite & Pages, formulaires, navigation protégée, affichage des flux et du journal \\
+FastAPI / Pydantic & Contrats des API, dépendances d'authentification, validation des entrées et sorties \\
+SQLModel / PostgreSQL & Profils, conversations, repas, routines, séries et prescriptions de décharge \\
+Alembic & Création et évolution du schéma avec migration des anciens repas \\
+Sentence Transformers & Encodage local des passages et questions avec \texttt{all-MiniLM-L6-v2} \\
+FAISS & Recherche dans deux index distincts : nutrition et exercice \\
+Gemini & Rédaction, synthèses structurées et analyse multimodale des repas \\
+\bottomrule
+\end{tabularx}
+\caption{Technologies présentes dans la version étudiée.}
+\end{table}
 
-% ──────────────────────────────────────────────────────────────────────────────
-\section{Panorama des Fonctionnalités IA à Base de Prompts}
-
-Contrairement aux solutions limitées à un simple assistant de recherche documentaire, FitBot déploie l'ingénierie de prompts à travers \textbf{cinq modules d'IA distincts}.
-
-\subsection{1. Le Coach Conversationnel RAG Multi-Intents}
-Le coach conversationnel repose sur une chaîne de traitement en continu (streaming SSE) :
-\begin{enumerate}
-    \item \textbf{Routage d'Intention \& Extraction d'Entités} : Le message utilisateur est analysé pour catégoriser son intention (\texttt{nutrition}, \texttt{exercise\_technique}, \texttt{workout\_logging}, \texttt{overload\_advice}, \texttt{general}) et détecter les exercices mentionnés via une table d'alias canoniques (ex: \textit{\og dev couché \fg{}} $\rightarrow$ \texttt{barbell-bench-press}).
-    \item \textbf{Isolation Catégorielle} : Les requêtes nutritionnelles interrogent exclusivement \texttt{nutrition.faiss}, tandis que les questions biomécaniques ciblent \texttt{exercise.faiss}, garantissant un taux d'étanchéité documentaire de $100\,\%$.
-    \item \textbf{Citations Précises} : L'IA insère des renvois numérotés (\texttt{[1]}, \texttt{[2]}) pointant vers les manuels indexés (\textit{Functional Training Guide}, \textit{360 Nutrition}, etc.) avec affichage de la page et du score de similarité.
+\begin{tcolorbox}[colback=lightgray,colframe=brandblue,title=Parcours d'une requête de coaching]
+\begin{enumerate}[leftmargin=*,itemsep=0.35em]
+\item Le navigateur envoie le message et le jeton JWT via le proxy \texttt{/api}.
+\item FastAPI identifie le compte et contrôle l'accès à la conversation.
+\item Le backend masque les identifiants détectables et détermine l'intention.
+\item Python prépare les chiffres ; FAISS sélectionne les passages pertinents.
+\item Le prompt réunit tâche, faits, contexte documentaire, règles et historique récent.
+\item Gemini produit une réponse ; le backend gère sa validation et les erreurs.
+\item L'interface affiche les événements SSE ; la conversation et ses sources sont sauvegardées.
 \end{enumerate}
+\end{tcolorbox}
 
-\subsection{2. L'Assistant IA de Routine \& Détection des Déficits de Volume}
-Situé sur la route \texttt{/api/workouts/ai-suggest-exercise}, cet agent effectue un audit volumétrique hebdomadaire :
-\begin{itemize}
-    \item Il compile le nombre exact de séries par groupe musculaire (pectoraux, dos, quadriceps, ischio-jambiers, épaules, bras, sangle abdominale).
-    \item Il compare ce total aux recommandations scientifiques d'hypertrophie ($10$ à $20$ séries directes par semaine).
-    \item \textbf{Branche d'Équilibre Parfait} : Si le programme atteint les seuils optimaux, l'IA formule une validation encourageante : \textit{\og Tout est parfait ! Votre routine est équilibrée et atteint les objectifs volumétriques. \fg{}}
-    \item \textbf{Branche de Déficit} : En cas de volume insuffisant (ex: seulement 6 séries pour les pectoraux), l'algorithme sélectionne automatiquement un exercice polyarticulaire non redondant dans le catalogue, l'attribue au jour le plus logique (jour Push/Haut), et soumet à un prompt LLM court la tâche de générer une \textbf{justification biomécanique en 1 à 2 phrases}.
-\end{itemize}
+\subsection{Modèle de données et isolation des comptes}
+Neuf tables applicatives structurent la persistance : \path{users}, \path{user_profile}, \path{chat_session}, \path{chat_message}, \path{workout_sets}, \path{meal_logs}, \path{saved_routines}, \path{food_log_entries} et \path{deload_records}. La table Alembic suit la version du schéma.
 
-\subsection{3. Le Scanner de Repas IA (Vision Multimodale)}
-Accessible via \texttt{/api/nutrition/scan-meal}, ce module traite directement les photographies d'assiettes :
-\begin{itemize}
-    \item L'image transmise en base64 est envoyée au modèle multimodal \textbf{Gemini 2.5 Flash Vision}.
-    \item Un prompt zero-shot hautement calibré impose une réponse strictement au format JSON (interdisant tout préambule ou bloc markdown).
-    \item L'IA segmente chaque aliment visible, estime sa masse en grammes, calcule les macronutriments individuels et globaux ($P, C, F, \text{kcal}$), et dispense un conseil de timing nutritionnel adapté.
-    \item L'utilisateur peut ensuite intégrer ces métriques d'un simple clic dans son journal de consommation journalier.
-\end{itemize}
+Les ressources personnelles sont rattachées au compte par \texttt{user\_id}. Les messages dépendent de leur conversation. Une requête de lecture ou de modification utilise l'identité issue du jeton ; un identifiant appartenant à un autre compte renvoie une absence de ressource. La suppression de compte couvre aussi le nouveau journal et les prescriptions de décharge.
 
-\subsection{4. Le Conseiller en Surcharge Progressive \& Prévention des Plateaux}
-Ce module traduit les logs de musculation en recommandations d'intensité :
-\begin{itemize}
-    \item \textbf{Calcul du 1RM} via la formule d'Epley : $1\text{RM} = w \cdot (1 + r / 30)$.
-    \item \textbf{Méthode de Double Progression} : Maintien de la charge jusqu'à l'atteinte du plafond de répétitions (ex: passage de 8 à 12 reps sur 3 séries à $\text{RPE} \le 8{,}5$), déclenchant alors un palier de $+2{,}5$\,kg.
-    \item \textbf{Prompt d'Accompagnement} : Le LLM intervient pour expliquer la fatigue neuromusculaire et prescrire une semaine de décharge (\textit{deload}) si une stagnation est détectée sur plus de 3 sessions successives.
-\end{itemize}
+La migration \texttt{e3c2b8d5f0a1} ajoute le journal détaillé et les décharges. Elle copie les anciens repas vers le nouveau journal avec leur propriétaire et leur date, tout en conservant l'ancienne API pour compatibilité. Les données métier ne restent plus dans \texttt{localStorage} ; le navigateur y conserve encore le jeton et des préférences visuelles.
 
-\subsection{5. Le Module de Guidage Personnalisé selon le Somatotype}
-Sur les routes de synthèse corporelle, l'IA adapte ses recommandations pédagogiques selon la morphologie de l'utilisateur (Ectomorphe, Mésomorphe, Endomorphe) en exploitant des passages spécifiques issus des manuels d'adaptation métabolique.
+\clearpage
+\section{Accès, tableau de bord et personnalisation}
+\subsection{Inscription et connexion}
+L'inscription demande un nom, une adresse électronique et un mot de passe confirmé. Le backend normalise l'adresse, vérifie l'unicité et la politique du mot de passe, puis stocke un hash bcrypt. La connexion délivre un jeton JWT ; les pages métier exigent une session authentifiée. Les formulaires rendent les erreurs de validation et de connexion lisibles.
+\screen[0.31\textheight]{01-login}{Page de connexion : accès aux données privées du compte.}{fig:login}
+\screen[0.31\textheight]{02-register}{Inscription : champs du compte et règles de validation.}{fig:register}
 
-% ──────────────────────────────────────────────────────────────────────────────
-\section{Ingénierie Avancée des Prompts : Méthodologie et Évolution}
+\clearpage
+\subsection{Tableau de bord quotidien}
+Le tableau de bord agrège les objectifs nutritionnels du profil, le prochain objectif de progression et le volume hebdomadaire par groupe musculaire. Les valeurs proviennent des services déterministes et des séances enregistrées. Il sert de point d'entrée vers le coach, la nutrition et le suivi d'entraînement.
+\screen{03-dashboard}{Vue quotidienne du compte de démonstration. Les objectifs sont issus du profil et du moteur de calcul.}{fig:dashboard}
+\textbf{Apport de l'IA :} l'accès au coach contextualise les questions à partir du même profil. L'écran d'accueil n'effectue pas, à lui seul, un appel LLM pour calculer les indicateurs.
 
-L'efficacité et la sécurité du système découlent directement de la structuration modulaire des prompts. 
+\clearpage
+\subsection{Profil physiologique et gestion du compte}
+Le profil rassemble l'âge, le sexe, la taille, le poids, l'activité, le niveau d'entraînement et l'objectif. Les unités métriques et impériales sont gérées à l'interface ; le poids sauvegardé reste en kilogrammes. La distinction évite de convertir deux fois une valeur lors du calcul des cibles.
+\screen[0.32\textheight]{06-profile}{Profil biométrique : paramètres utilisés par les calculs et la personnalisation des prompts.}{fig:profile}
+L'espace de compte permet de modifier le nom, de changer le mot de passe et de supprimer les données du compte après confirmation du mot de passe.
+\screen[0.30\textheight]{10-account-security}{Gestion du compte, changement du mot de passe et suppression.}{fig:account}
 
-\subsection{Architecture Découpée en 6 Couches}
-Chaque prompt généré par le backend assemble dynamiquement six blocs indépendants :
+\clearpage
+\subsection{Nouveau bilan Athlete Blueprint}
+\textbf{But.} Produire un bilan lisible réunissant points d'appui, points de vigilance, repères de volume, fréquence d'entraînement, jalons temporels et directives de coaching.
+
+\textbf{Traitement.} La route \texttt{/api/user/blueprint} résout les valeurs du profil connecté ou les valeurs de prévisualisation. Python calcule notamment l'IMC, le métabolisme, la dépense, les cibles et, si possible, une estimation de masse maigre. Une recherche documentaire enrichit le prompt. Le modèle propose ensuite une structure JSON, interprétée par le service et affichée dans une modale.
+\screen{07-blueprint}{Bilan Athlete Blueprint généré pour le profil de démonstration.}{fig:blueprint}
+\textbf{Optimisation de sortie.} Les métriques calculées sont transmises comme faits fixes ; les rubriques attendues réduisent la prose hors sujet. Des valeurs de repli sont prévues lorsque l'enrichissement IA échoue. Les jalons demeurent indicatifs : ils ne prédisent pas individuellement une transformation corporelle.
+
+\clearpage
+\subsection{Questionnaire de somatotype et conseils personnalisés}
+Le questionnaire comporte cinq questions. Le backend associe les réponses à des votes et établit un résultat déterministe avant l'enrichissement rédactionnel. Le modèle résume les tendances et les conseils ; l'utilisateur décide d'appliquer ou non la proposition au profil.
+\screen[0.32\textheight]{08-somatotype-quiz}{Étape du questionnaire : la donnée d'entrée reste un choix explicite de l'utilisateur.}{fig:quiz}
+\screen[0.32\textheight]{09-somatotype-result}{Résultat et conseils générés à partir du score et des réponses.}{fig:quiz-result}
+\textbf{Limite.} Ce questionnaire simplifié n'est ni une mesure clinique ni une validation complète de la méthode anthropométrique Heath--Carter, même si l'interface emploie ce vocabulaire. Le rapport décrit ici le comportement logiciel, sans valider une typologie métabolique.
+
+\clearpage
+\section{Coach conversationnel et recherche documentaire}
+\subsection{Réponse RAG en streaming}
+Le coach reconnaît cinq intentions : nutrition, technique d'exercice, journal d'entraînement, conseil de progression et demande générale. Des règles et des alias d'exercices précèdent un recours éventuel au modèle pour la classification. Une question nutritionnelle interroge l'index nutrition ; une question de technique interroge l'index exercice.
+\screen{04-coach-rag}{Question en français, réponse contextualisée et affichage progressif dans le coach.}{fig:rag}
+Le prompt comprend la persona, l'intention, les faits du profil, les métriques déjà calculées, les extraits pertinents et les règles de prudence. La route ajoute les \textbf{six derniers messages} de la conversation avant la nouvelle question. La fonction d'assemblage possède aussi un plafond de dix messages ; il ne s'agit donc pas d'une mémoire intégrale de toutes les discussions.
+
+Les événements SSE transportent les métadonnées, les sources, les morceaux de texte, une éventuelle action proposée et la fin du flux. Le modèle peut répondre dans la langue de la demande ; une consigne de langue explicite améliore la régularité.
+
+\clearpage
+\subsection{Sources, historique et actions confirmées}
+\screen{05-coach-sources}{Panneau de sources du coach : document, page, extrait et score de similarité.}{fig:sources}
+Les renvois numérotés relient la réponse à des passages du corpus local. Le score affiché mesure la similarité de recherche ; il n'est pas une probabilité de vérité. L'historique est sauvegardé par compte dans PostgreSQL et peut être rechargé.
+
+Lorsqu'un message décrit une séance, un parseur extrait l'exercice, les séries, les répétitions et la charge. Une action est présentée pour confirmation ; l'analyse du texte ne doit pas être confondue avec l'enregistrement effectif. Cette séparation évite d'écrire une séance imaginée par le modèle.
+
+\textbf{Optimisation de sortie.} Une source absente doit conduire à une formulation d'incertitude plutôt qu'à une référence inventée. En cas de clé absente, de quota ou de délai dépassé, le mode dégradé affiche un message et, lorsqu'ils existent, des extraits documentaires. Ce repli est identifiable comme tel et ne simule pas une réponse IA réussie.
+
+\clearpage
+\section{Nutrition, journal et vision multimodale}
+\subsection{Cibles énergétiques et plan de repas}
+Le service nutrition calcule le métabolisme basal, la dépense quotidienne et les cibles de macronutriments à partir des paramètres du profil. Les formules et les règles sont exécutées en Python. Le plan répartit les cibles entre les repas et peut être accompagné de conseils documentaires sur le timing, l'hydratation et les compléments.
+\screen{11-nutrition-targets}{Cibles calculées et distribution quotidienne. La génération de conseils est séparée du calcul numérique.}{fig:nutrition}
+La séparation permet de présenter les indicateurs même si Gemini ne répond pas. Le drapeau \texttt{floor\_applied} et les avertissements rendent visibles certaines règles de plancher du calculateur ; ils ne suffisent pas à caractériser tous les besoins médicaux particuliers.
+
+\clearpage
+\subsection{Nouveau journal alimentaire éditable}
+Le journal regroupe les repas par date et créneau. Il affiche ce qui a été consommé, la cible et le solde restant. Les totaux sont calculés côté serveur à partir des entrées du compte. L'ajout, l'édition et la suppression passent par \texttt{/api/nutrition/log} ; le bilan quotidien passe par \texttt{/api/nutrition/log/summary}.
+\screen[0.32\textheight]{12-food-diary}{Journal : apports cumulés, solde quotidien et repas enregistrés.}{fig:diary}
+\screen[0.30\textheight]{13-food-entry}{Formulaire commun de revue des repas saisis, scannés ou suggérés.}{fig:entry}
+Un schéma Pydantic refuse notamment un nom vide, des valeurs négatives et des dépassements des bornes d'une entrée. La source de l'estimation est conservée ; une validation de type ne garantit toutefois pas l'exactitude nutritionnelle d'une saisie humaine.
+
+\clearpage
+\subsection{Nouvelles suggestions de repas adaptées au solde}
+L'utilisateur peut demander des idées selon le créneau et des préférences alimentaires. Le backend calcule d'abord le budget restant puis demande au LLM au plus trois suggestions. Il parse le JSON, élimine les entrées inutilisables et calcule lui-même le statut \texttt{fits\_remaining}. Les propositions qui respectent les calories restantes sont présentées en premier.
+\screen{14-meal-suggestions}{Suggestions obtenues à partir des apports restants et des préférences du compte de démonstration.}{fig:meal-suggest}
+\textbf{Optimisation de sortie.} Le prompt interdit de recalculer le solde. Le parseur limite à trois propositions et contrôle noms, valeurs numériques et bornes. Si l'objectif calorique est atteint, ou s'il reste moins de 150 kcal, le service retourne un message déterministe sans solliciter le modèle. Chaque proposition reste une estimation ; \textit{Review \& add} ouvre le formulaire avant sauvegarde.
+
+\clearpage
+\subsection{Scanner de repas Gemini Vision}
+Le scanner accepte une photographie JPEG, PNG ou WEBP. Le backend valide le contenu base64 et limite l'image à 8 Mo avant l'envoi à Gemini. La réponse attendue décrit le repas, les aliments, les portions estimées, les macros et une indication textuelle de confiance.
+\screen{15-vision-upload}{Scanner de repas : interface d'import. Cette capture montre l'entrée de la fonctionnalité, sans résultat alimentaire simulé.}{fig:vision}
+\textbf{Flux de sortie.} La route \texttt{/api/nutrition/scan-meal} extrait un objet JSON, arrondit les calories décimales lorsque nécessaire et le valide avec \texttt{MealScanResponse}. Un contenu illisible produit une erreur 502 ; un fournisseur indisponible produit une erreur 503. Aucun plat fictif n'est renvoyé comme résultat réussi.
+
+L'action \textit{Review \& Add to Diary} prépare une entrée modifiable ; elle ne rend pas l'estimation exacte. La photographie est transmise au fournisseur pour l'analyse et n'est pas sauvegardée par cette route dans la base applicative. La valeur \texttt{confidence} est une sortie déclarative du modèle, sans calibration probabiliste démontrée.
+
+\clearpage
+\subsubsection{Exemple réel de résultat multimodal}
+La figure suivante provient d'un appel réussi à l'API Vision, sur une photographie de salade utilisée pour la démonstration. Les valeurs visibles sont celles produites par Gemini, puis validées structurellement par le backend. Elles ne sont pas présentées comme une mesure exacte des aliments photographiés.
+\screen[0.55\textheight]{15b-vision-result}{Résultat réel du scanner : estimation du repas et de ses composants, avant revue par l'utilisateur.}{fig:vision-result}
+\textbf{Crédit photographique :} Anna Pelzer, \textit{Bowl of vegetable salads}, Unsplash, photographie utilisée sous la licence Unsplash. La source est accessible à l'adresse \url{https://unsplash.com/photos/bowl-of-vegetable-salads-IGfIGP5ONV0}. Le fichier de démonstration est conservé avec les images pour reproduire la capture.
+
+\textbf{Limite observée sur cette capture.} La page source décrit une salade végétalienne, alors que le résultat Vision nomme notamment des \og \oe{}ufs de caille \fg{}. Le JSON est valide et la confiance déclarée est élevée, mais cela ne résout pas l'ambiguïté des ingrédients. Cet exemple justifie la revue humaine et suggère deux améliorations : demander confirmation des composants incertains, puis relier les aliments confirmés à une table nutritionnelle de référence. Ces améliorations sont proposées ; elles ne sont pas encore implémentées.
+
+\clearpage
+\section{Programmes et assistance à l'entraînement}
+\subsection{Génération et personnalisation de routine}
+La routine est construite à partir du découpage choisi, du nombre de jours, du niveau, de l'objectif et des équipements. La sélection de base appartient au générateur déterministe. L'utilisateur peut changer des exercices, modifier les séries, les répétitions et le repos, puis démarrer la séance dans le Tracker.
+\screen{16-workout-planner}{Routine sauvegardée et matrice du volume hebdomadaire par groupe musculaire.}{fig:routine}
+La routine est persistée dans \texttt{saved\_routines}, propre au compte. Elle reste disponible après un rechargement du navigateur. La matrice de volume sert d'entrée à l'assistant IA mais n'exige pas elle-même de génération de texte.
+
+\clearpage
+\subsection{Assistant IA de routine : expliquer une correction de volume}
+La route \texttt{/api/exercises/ai-suggest-exercise} compare les séries hebdomadaires aux repères du moteur. Lorsqu'un groupe est insuffisamment représenté, le backend recherche un exercice adapté, un jour et une prescription. Le LLM rédige une justification courte de l'ajout proposé.
+\screen{17-routine-ai}{Analyse du coach de routine : suggestion concrète et justification, avant décision de l'utilisateur.}{fig:routine-ai}
+\textbf{Optimisation de sortie.} Le prompt limite la justification à une ou deux phrases et lui fournit l'exercice, le déficit et la cible. Ce cadrage réduit les réponses longues et incohérentes avec le programme. L'utilisateur doit confirmer l'ajout ; un texte IA n'est pas appliqué silencieusement à la routine.
+
+\clearpage
+\subsection{Catalogue et fiches techniques d'exercices}
+La bibliothèque permet de rechercher et filtrer les exercices par nom, groupe musculaire ou équipement. Les fiches affichent préparation, consignes d'exécution, erreurs fréquentes et précautions issues du catalogue. Un complément documentaire peut être demandé au coach.
+\screen[0.32\textheight]{18-exercise-library}{Catalogue filtrable utilisé par le planificateur et le suivi.}{fig:library}
+\screen[0.32\textheight]{19-exercise-technique}{Fiche de technique et accès à une question contextualisée.}{fig:technique}
+\textbf{Optimisation de sortie.} Le nom canonique de l'exercice est transmis au service pour éviter les ambiguïtés. Les passages recherchés restent dans la catégorie exercice. Le contenu statique du catalogue reste disponible si l'enrichissement IA échoue.
+
+\clearpage
+\section{Progression, diagnostic de plateau et décharge}
+\subsection{Signaux et prescription calculés}
+Le Tracker enregistre les séries confirmées : charge, répétitions, date, RPE/RIR et exercice. Il produit une recommandation de progression et une courbe de performance. Le moteur de plateau analyse l'évolution des charges, de l'estimation du 1RM, de l'effort, des répétitions et de la couverture des données.
+\screen{20-tracker-diagnosis}{Diagnostic de plateau sur un historique synthétique : charge stable, effort croissant et répétitions en baisse.}{fig:diagnosis}
+Les classes du moteur incluent des cas de progression, de données insuffisantes, de fatigue plausible, de stimulus insuffisant ou de cause indéterminée. Ces catégories sont des \textbf{heuristiques de coaching versionnées}, pas des diagnostics cliniques. L'indice de confiance est également une règle du moteur, sans calibration médicale.
+
+\clearpage
+\subsection{Rôle limité du LLM dans l'explication}
+Python fixe les métriques et les stratégies autorisées. Le prompt d'explication transmet des directions qualitatives : charge stable, effort croissant, répétitions décroissantes, etc. Le modèle utilise une température de \textbf{0,3} et doit produire une ligne \texttt{STRATEGY} et une ligne \texttt{EXPLANATION}.
+
+Le validateur \texttt{validate\_llm\_prose} contrôle notamment les nombres non autorisés, les renvois de citations et certaines contradictions avec les signaux calculés. Une explication refusée, vide ou trop lente est remplacée par un texte déterministe. Le délai d'attente de cette synthèse est de quatre secondes ; cela n'annule pas nécessairement un appel fournisseur déjà lancé.
+
+\subsection{Décharge : préremplir, vérifier, puis confirmer}
+L'action visible \textit{Apply Deload (Prefill)} prépare des séries brouillon à partir de la prescription : charge, séries, répétitions et plafond d'effort. Le bouton ne prouve pas qu'une séance a été réalisée, et il n'appelle pas à lui seul l'API de persistance d'une décharge.
+\screen[0.39\textheight]{21-deload-draft}{Décharge préremplie : les valeurs demeurent un brouillon avant validation de la séance.}{fig:deload}
+Les routes \texttt{/api/overload/apply-deload} et \texttt{/api/overload/cancel-deload} existent côté backend. La première recalcule les paramètres avant d'enregistrer une prescription ; elle ne fait pas confiance à des valeurs de charge envoyées par un client. La seconde contrôle l'appartenance du dossier au compte.
+
+\clearpage
+\subsection{Historique, estimation de force et volume confirmé}
+\screen{22-performance-history}{Historique des séances et visualisation de la performance. Les points représentent les données de démonstration enregistrées.}{fig:history}
+Le 1RM affiché est une estimation calculée, notamment avec la formule d'Epley :
+\[
+\widehat{1RM}=w\left(1+\frac{r}{30}\right).
+\]
+Il ne s'agit pas d'une mesure réelle de charge maximale. Le volume hebdomadaire compte les séries confirmées répondant au critère d'effort du moteur ; les brouillons ne sont pas intégrés tant que la séance n'est pas enregistrée. L'onglet de volume et la courbe permettent de distinguer une recommandation d'un résultat effectivement saisi.
+
+\clearpage
+\section{Comment FitBot optimise les sorties IA}
+\subsection{Une chaîne de contraintes plutôt qu'un prompt isolé}
+La qualité de sortie repose sur plusieurs niveaux complémentaires : sélectionner une tâche précise, n'envoyer que le contexte utile, fixer un contrat de réponse, contrôler ce que le modèle retourne et prévoir un repli explicite. Un prompt strict diminue certaines erreurs sans offrir, à lui seul, une garantie de vérité.
+
+\begin{table}[H]
+\small\begin{tabularx}{\linewidth}{p{3.2cm}XX}
+\toprule
+\textbf{Levier} & \textbf{Mise en \oe{}uvre actuelle} & \textbf{Effet recherché} \\
+\midrule
+Spécialisation & Gabarit par intention et par module & Réduire les réponses hors sujet \\
+Contexte pertinent & Index séparés et seuil de similarité & Réduire les extraits sans rapport \\
+Faits calculés & Calories, macros, séries et charge injectées & Éviter les recalculs du LLM \\
+Contrat structuré & JSON ou lignes nommées & Rendre la sortie exploitable par le code \\
+Concision & Routine : une ou deux phrases ; plateau : structure courte & Limiter les digressions et les jetons \\
+Vérification & Pydantic, parseurs et validateur du diagnostic & Refuser certaines sorties invalides \\
+Repli explicite & Sources seules, message d'erreur ou gabarit & Ne pas afficher un succès fabriqué \\
+\bottomrule
+\end{tabularx}
+\caption{Mécanismes d'optimisation observables dans l'implémentation.}
+\end{table}
+
+\subsection{Prompt nutrition : avant et après cadrage}
+\begin{tcolorbox}[colback=red!3,colframe=codered,title=Exemple pédagogique insuffisamment cadré]
+\small\ttfamily
+Tu es un coach. Calcule mes calories et dis-moi quoi manger.
+\end{tcolorbox}
+Cette demande mélange calcul, choix nutritionnels et rédaction sans fournir les paramètres ni les références. Elle est donnée comme illustration, pas comme résultat d'un benchmark comparatif.
+\begin{lstlisting}[caption={Structure du gabarit nutrition effectivement utilisé, extrait abrégé}]
+INTENT: Nutrition Coaching & Guidance
+USER FACTS: {facts}
+CALCULATED NUMBERS (DO NOT RECOMPUTE): {numbers}
+CONTEXT (Retrieved Passages from Guides): {context}
+
+RULES:
+1. Quote the CALCULATED NUMBERS exactly as provided.
+2. Rely strictly on the CONTEXT. Cite passages as [1], [2].
+3. If information is missing: 'I could not find this in the guides.'
+4. Refuse dangerous requests and append the safety note.
+\end{lstlisting}
+L'optimisation ne consiste pas à ajouter arbitrairement des instructions : elle rend la tâche mesurable. On peut vérifier si les chiffres affichés correspondent aux champs calculés et si une citation appartient à la liste réellement fournie.
+
+\clearpage
+\subsection{RAG : qualité des entrées et maîtrise du contexte}
+Les PDF sont extraits en passages d'environ \textbf{900 caractères}, avec \textbf{150 caractères de recouvrement}. Les embeddings sont calculés localement. FAISS recherche sur des vecteurs normalisés ; le score s'interprète comme une similarité, et le seuil par défaut du moteur est \textbf{0,25}.
+
+Le nombre de passages dépend de la tâche, et n'est pas uniformément égal à trois :
+\begin{table}[H]
+\small\begin{tabularx}{\linewidth}{Xp{2cm}X}
+\toprule
+\textbf{Tâche} & \textbf{Passages} & \textbf{Portée} \\
+\midrule
+Coach conversationnel & Jusqu'à 5 & Catégorie de l'intention ou recherche globale \\
+Questions nutrition & Jusqu'à 5 & Nutrition uniquement \\
+Bilan Athlete Blueprint & Jusqu'à 3 & Recherche dans le corpus global \\
+Explication de plateau & Jusqu'à 3 & Exercice uniquement \\
+Guidance du plan nutrition & 2 par thème & Timing, hydratation, compléments \\
+\bottomrule
+\end{tabularx}
+\caption{Paramètres de recherche lus dans les routes et services actuels.}
+\end{table}
+
+Limiter les passages et la mémoire récente évite d'envoyer toute la bibliothèque au modèle. Un petit \(k\) peut toutefois masquer une source utile ; il doit être choisi par évaluation de la tâche. Le script d'évaluation documentaire utilise un seuil de 0,10, inférieur au défaut du moteur : ses résultats ne doivent pas être attribués automatiquement à toutes les réponses de production.
+
+\subsection{JSON : rendre la génération exploitable}
+Pour le scanner, les suggestions et le Blueprint, le prompt énumère les champs attendus. Le service doit ensuite lire, convertir et valider la sortie. Par exemple :
+\begin{lstlisting}[caption={Forme de sortie attendue pour une idée de repas ; valeurs illustratives}]
+{"suggestions": [{
+  "name": "Bol de riz et poulet",
+  "description": "Repas simple a ajuster selon les portions.",
+  "portion": "150 g de poulet et 150 g de riz cuit",
+  "calories": 520, "protein_g": 40,
+  "carbs_g": 55, "fat_g": 14
+}]}
+\end{lstlisting}
+Ces nombres illustrent le contrat de données et ne sont ni une sortie mesurée ni une composition alimentaire certifiée. Le statut \texttt{fits\_remaining} est ajouté par Python après comparaison au solde ; il ne dépend pas de l'affirmation du modèle.
+
+\clearpage
+\subsection{Température, verbosité et stratégies autorisées}
+La température de 0,3 concerne l'explication de plateau. La méthode texte générique accepte une température, avec 1,0 par défaut ; le chemin SSE utilise les réglages par défaut du SDK. Le projet ne doit donc pas être décrit comme exécutant tous les appels à basse température.
+
+Pour le diagnostic, l'explication ne peut pas inventer une nouvelle prescription : elle est confrontée aux stratégies autorisées par Python. Les tendances sont fournies sous forme de mots pour éviter que le modèle transforme des chiffres en une nouvelle charge cible. Les citations sont bornées par les passages récupérés ; le validateur refuse également certaines affirmations non soutenues et certaines contradictions directionnelles.
+
+\begin{lstlisting}[caption={Structure de la sortie du diagnostic, exemple de format uniquement}]
+STRATEGY: <one of the Python-approved strategies>
+EXPLANATION: <short cautious explanation of observed signals>
+\end{lstlisting}
+Les tests portent sur l'acceptation et le rejet de ces formats. Ils ne remplacent pas une évaluation humaine de la pertinence de toutes les explications.
+
+\subsection{Données personnelles, affichage et validation}
+Le coach masque les adresses électroniques, certains formats de téléphone, les identifiants bancaires détectables et les éléments du nom connu avant l'envoi du texte libre. Cette \textbf{pseudonymisation par règles} réduit l'exposition mais ne garantit pas de détecter toutes les informations personnelles. Les caractéristiques physiques nécessaires à la tâche restent présentes dans le contexte ; la photo du scanner est transmise au service multimodal.
+
+Pour une réponse JSON du chat, le nettoyage précède le retour au client. Pour le SSE, les morceaux de texte arrivent progressivement à l'écran ; le nettoyage final est effectué avant la sauvegarde. Il ne faut donc pas prétendre que chaque token est validé sémantiquement avant affichage.
+
+\subsection{Latence, timeout et disponibilité}
+Le client Gemini partage un budget de tentatives configurable, de 30 secondes par défaut, au lieu de multiplier ce délai pour chaque modèle de secours. Le diagnostic possède un délai d'attente plus court pour son explication. Le chargement anticipé des embeddings réduit le travail du premier message ; l'itération synchrone du fournisseur est déportée vers des threads dans le chemin SSE.
+
+Le streaming améliore la perception de réactivité, sans réduire nécessairement la durée totale de génération. Une limite stricte de bout en bout, l'annulation effective d'une requête distante et la latence sous charge doivent encore être mesurées séparément. Les erreurs classifiées distinguent clé absente ou invalide, quota, timeout, refus et panne du fournisseur.
+
+\clearpage
+\subsection{Consommation de jetons et coût : méthode reproductible}
+La version étudiée ne conserve pas un relevé de facturation par fonctionnalité. Les anciennes valeurs de coût mensuel et d'économie en pourcentage ne sont donc pas reprises comme mesures. Pour une requête, le coût théorique doit être calculé avec les jetons réellement facturés et les prix du modèle effectivement appelé :
+\[
+C_{\text{appel}}=\frac{T_{\text{entrée}} P_{\text{entrée}}+T_{\text{sortie}} P_{\text{sortie}}}{10^6}.
+\]
+Ici, \(P\) désigne le prix par million de jetons. Les images, les mécanismes de raisonnement, les caches et les modèles de secours peuvent modifier le décompte selon le fournisseur. Aucun tarif non vérifié n'est nécessaire pour expliquer la méthode.
+
+Les leviers déjà présents sont la recherche ciblée, la mémoire limitée, les justifications courtes et l'absence d'appel au LLM lorsque le calcul suffit. Les améliorations proposées sont un journal de \textit{usage metadata}, un identifiant de version du prompt, une limite de sortie adaptée à chaque tâche et un cache dont la clé dépend du profil et des paramètres utiles.
+
+\subsection{Protocole proposé pour une prochaine optimisation}
 \begin{enumerate}
-    \item \textbf{Persona} : Posture d'entraîneur d'élite, rigoureux, direct et bienveillant.
-    \item \textbf{Intention Déclarée} : Précision explicite de la tâche assignée au modèle.
-    \item \textbf{Faits Utilisateur} : Âge, sexe, poids, taille, niveau d'expérience, somatotype et objectif.
-    \item \textbf{Métriques Déterministes} : Chiffres précalculés par Python (calories, macros, séries, 1RM).
-    \item \textbf{Contexte Documentaire} : Extraits textuels $k=3$ issus du RAG vectoriel.
-    \item \textbf{Garde-fous Négatifs et Mentions Légales} : Consignes d'interdiction formelles.
+\item Constituer un jeu de questions couvrant nutrition, technique, plateau, cas hors corpus et erreurs d'API.
+\item Figer les données, le modèle et le corpus, puis versionner les prompts.
+\item Comparer une seule modification à la fois : \(k\), température, longueur de contexte ou structure de sortie.
+\item Mesurer taux de JSON valide, citations conformes, conservation des valeurs calculées, latences médiane et 95e percentile, jetons et coût.
+\item Faire relire un échantillon par un évaluateur humain, notamment les explications de santé ou de biomécanique.
+\item N'adopter une modification qu'après vérification qu'elle améliore la tâche sans dégrader les garde-fous.
 \end{enumerate}
+Cette méthode distingue les \textbf{optimisations déjà implémentées} des \textbf{travaux futurs}. Le projet n'effectue pas actuellement de fine-tuning du modèle Gemini ni d'entraînement d'un modèle médical propriétaire.
 
-\subsection{Garde-fous Négatifs et Responsabilité Civile}
-Les prompts intègrent des barrières infranchissables :
-\begin{itemize}
-    \item \textbf{Refus Catégorique du Dopage} : Interdiction stricte de fournir des protocoles, dosages ou sources d'approvisionnement pour les stéroïdes anabolisants, SARMs, clenbutérol ou peptides. Le modèle alerte explicitement sur les risques cardiovasculaires et endocriniens irréversibles.
-    \item \textbf{Non-Diagnostic Médical} : En cas d'évocation d'une douleur aiguë ou tendineuse, le modèle refuse le diagnostic et réoriente immédiatement vers un médecin ou kinésithérapeute.
-    \item \textbf{Plancher Métabolique Inviolable} : Rejet automatique de toute restriction sous $1\,200$\,kcal (femme) ou $1\,500$\,kcal (homme).
-\end{itemize}
+\clearpage
+\section{Validation et preuves reproductibles}
+\subsection{Suite automatisée et compilation}
+Le dernier contrôle complet du code intégré donne \textbf{341 tests réussis et 2 ignorés}. La suite couvre les formules, l'authentification, l'isolation des comptes, le journal, les suggestions, le scanner, le plateau, les erreurs du fournisseur et la migration des anciens repas. Les tests fonctionnels emploient une base SQLite de test et des substituts du LLM ; ils ne démontrent pas une précision clinique des générations réelles.
 
-\subsection{Comparaison Avant / Après Optimisation des Prompts}
+Les deux tests ignorés ne sont pas comptés comme réussis. L'un concerne une coroutine sans plugin asynchrone approprié ; l'autre est un cas marqué comme ignoré dans la suite de diagnostic. Le frontend compile et la vérification TypeScript passe.
+\begin{lstlisting}[caption={Commandes de vérification du projet}]
+cd backend
+.venv\Scripts\python -m pytest -q -p no:cacheprovider
+.venv\Scripts\python scripts\rag_eval.py
 
-\begin{figure}[h!]
-\begin{tcolorbox}[colback=red!5,colframe=codered,title=\textbf{Version Initiale : Prompt Naïf Non Structuré},arc=2mm]
-\small\ttfamily
-Tu es un coach sportif. Réponds à la question de l'utilisateur sur son entraînement et son alimentation. Calcule ses calories s'il le demande et encourage-le.
-\end{tcolorbox}
-\vspace{-0.2cm}
-\textit{\footnotesize \textbf{Défaillances observées} : Hallucinations arithmétiques récurrentes, validation de régimes drastiques à 800 kcal, acceptation de questions sur les anabolisants, aucun renvoi scientifique.}
-\vspace{0.4cm}
-
-\begin{tcolorbox}[colback=green!5,colframe=codegreen,title=\textbf{Version Finale : Prompt Structuré \& Contraint de FitBot},arc=2mm]
-\small\ttfamily
-\{COACH\_PERSONA\} \\
-INTENTION : Coaching Nutritionnel \& Périodisation \\
-\\
-FAITS UTILISATEUR : \\
-\{user\_facts\} \\
-\\
-CHIFFRES DÉTERMINISTES CALCULÉS (NE PAS RECALCULER - CITER STRICTEMENT) : \\
-\{calculated\_numbers\} \\
-\\
-CONTEXTE DOCUMENTAIRE RÉCUPÉRÉ (Guides Scientifiques) : \\
-\{retrieved\_context\} \\
-\\
-RÈGLES IMPÉRATIVES DE SÉCURITÉ : \\
-1. Citer les CHIFFRES CALCULÉS exactement tels que fournis. Ne jamais recalculer. \\
-2. Fonder les conseils exclusivement sur le CONTEXTE documentaire. Citer [1], [2]. \\
-3. Si le contexte ne contient pas l'information, déclarer : "Information non disponible dans les guides vérifiés." \\
-4. REFUS STRICT : Refuser formellement tout conseil sur les stéroïdes anabolisants, SARMs ou substances illicites. \\
-5. AVERTISSEMENT MÉDICAL : En cas de douleur articulaire, refuser tout diagnostic médical et renvoyer vers un professionnel de santé. \\
-6. Apposer la mention légale de sécurité officielle.
-\end{tcolorbox}
-\caption{Comparaison entre le prompt naïf initial et le prompt blindé de FitBot.}
-\label{fig:prompts}
-\end{figure}
-
-\subsection{Prompt de Vision Multimodale avec Typage JSON}
-
-Pour le scanner de repas, le prompt élimine toute prose conversationnelle pour garantir un parsing machine sans échec :
-
-\begin{lstlisting}[language=Python,caption=Prompt Multimodal Vision avec Contrainte de Schéma JSON]
-prompt = """Tu es un nutritionniste du sport d'elite et un analyste visuel alimentaire.
-Analyse la photographie de cette assiette.
-Identifie chaque aliment distinct, estime les portions realistes en grammes et calcule les calories ainsi que les macronutriments (P, C, F).
-
-Retourne UNIQUEMENT un objet JSON valide conforme exactement a cette structure (sans balises markdown) :
-{
-  "meal_name": "Titre descriptif (ex: Blanc de poulet grille, riz complet et brocolis)",
-  "confidence": "high" | "medium" | "low",
-  "total_calories": 540,
-  "protein_g": 46.0,
-  "carbs_g": 50.0,
-  "fat_g": 12.0,
-  "food_items": [
-    {
-      "name": "Blanc de poulet grille",
-      "portion_est": "180g (cuit)",
-      "calories": 290,
-      "protein_g": 40.0,
-      "carbs_g": 0.0,
-      "fat_g": 6.0
-    }
-  ],
-  "coaching_tip": "Conseil concis sur la digestion et la fenetre de recuperation."
-}"""
+cd ..\frontend
+npm run build
+npx tsc --noEmit -p tsconfig.json
 \end{lstlisting}
 
-% ──────────────────────────────────────────────────────────────────────────────
-\section{Consommation de Jetons (Tokens) et Analyse Économique}
-
-L'un des défis majeurs dans le déploiement d'applications fondées sur l'IA réside dans la maîtrise des coûts opérationnels et la latence induite par les flux de jetons.
-
-\subsection{Profil de Consommation par Requête}
-
-Le tableau~\ref{tab:tokens} détaille la consommation moyenne de jetons mesurée sur les différents modules de FitBot.
-
-\begin{table}[h!]
-\centering
-\small
-\begin{tabularx}{\textwidth}{lcccc}
+\subsection{Évaluation de la recherche documentaire}
+Le script \texttt{scripts/rag\_eval.py} a été relancé sur les 20 questions de \texttt{tests/rag\_eval.json}, avec \(k=5\) et un seuil de 0,10. Il contrôle la catégorie, recherche les mots-clés attendus dans les passages et calcule le rang du premier passage contenant un mot-clé.
+\begin{table}[H]
+\begin{tabularx}{\linewidth}{Xr}
 \toprule
-\textbf{Fonctionnalité IA} & \textbf{Tokens Entrée (Prompt)} & \textbf{Tokens Sortie (Rép.)} & \textbf{Total Jetons} & \textbf{Fréquence Type / Jour} \\
+\textbf{Indicateur du script} & \textbf{Résultat local} \\
 \midrule
-\textbf{Coach Chat (RAG Streaming)} & $1\,150 \pm 120$ & $380 \pm 50$ & $\sim 1\,530$ & $4$ à $6$ messages \\
-\textbf{Scanner de Repas (Vision)} & $580 \pm 40$ \footnotemark & $290 \pm 40$ & $\sim 870$ & $2$ à $3$ repas \\
-\textbf{Suggestion de Routine IA} & $420 \pm 30$ & $85 \pm 15$ & $\sim 505$ & $0{,}5$ fois \\
-\textbf{Conseil Surcharge Progressive} & $620 \pm 50$ & $210 \pm 30$ & $\sim 830$ & $1$ fois \\
-\textbf{Guidage Somatotype} & $540 \pm 40$ & $160 \pm 25$ & $\sim 700$ & $0{,}1$ fois (profiling) \\
+Questions évaluées & 20 \\
+Requêtes sans passage d'une autre catégorie & 20 / 20 \\
+Requêtes avec un mot-clé attendu dans le top-5 & 18 / 20 \\
+MRR fondé sur les mots-clés & 0,817 \\
+Score moyen du premier passage & 0,501 \\
 \bottomrule
 \end{tabularx}
-\caption{Consommation moyenne de jetons mesurée par type de requête.}
-\label{tab:tokens}
+\caption{Résultats de l'évaluation documentaire locale du 26 octobre 2026.}
 \end{table}
-\footnotetext{Comprend environ 258 jetons d'encodage visuel pour une image redimensionnée en $768 \times 768$ px selon le protocole de tuilage de Google Gemini 2.5 Flash.}
+Le taux de 90\,\% est un indicateur de présence de mots-clés sur ce petit jeu. Il ne mesure ni la factualité de la réponse du LLM ni une supériorité statistique par rapport à un chatbot générique. L'isolation par catégorie est également une propriété du routage et du protocole, pas une preuve de validité scientifique du corpus.
 
-\subsection{Grille Tarifaire et Modèle de Coût Unitaire}
+\clearpage
+\subsection{Captures, données de démonstration et reproductibilité}
+Les images de ce rapport sont produites dans le navigateur avec le script \path{frontend/scripts/capture_report.mjs}. Un compte jetable reçoit un profil synthétique, un journal, une routine et des séances simulant différents signaux. Les appels IA utilisent le service configuré ; le contenu du modèle peut varier entre deux exécutions.
 
-Nous retenons la grille tarifaire officielle de **Google Gemini 2.5 Flash** (modèle de production déployé) :
-\begin{itemize}
-    \item \textbf{Jetons d'entrée (Prompt)} : $0{,}075$\,\$ pour $1\,000\,000$ de jetons ($0{,}000075$\,\$/k-token).
-    \item \textbf{Jetons de sortie (Complétion)} : $0{,}300$\,\$ pour $1\,000\,000$ de jetons ($0{,}000300$\,\$/k-token).
+Le script sauvegarde les images dans \path{report/images/} et écrit un manifeste \texttt{captures.json} avec les routes, statuts d'appel et dates de capture. Le mot de passe et le jeton ne sont pas inscrits dans ce manifeste. Le compte temporaire est supprimé après la capture. Les deux vues du scanner montrent l'import puis un résultat réellement retourné par Gemini, sans réponse photographique simulée.
+
+La validation d'intégration réalisée pendant la synchronisation a également vérifié, par le proxy du frontend et sur PostgreSQL, la création du journal, les totaux, le refus d'accès depuis un deuxième compte, le Blueprint et le diagnostic. La migration de données et les scripts de démonstration ont leurs contrôles distincts.
+
+\subsection{Interface responsive}
+La navigation s'adapte aux petits écrans. La capture mobile complète les vues de bureau sans introduire de nouveau moteur IA.
+\begin{figure}[H]
+\centering
+\includegraphics[height=0.50\textheight,keepaspectratio]{images/23-mobile-dashboard.png}
+\caption{Tableau de bord mobile : cartes empilées et navigation adaptée.}
+\label{fig:mobile}
+\end{figure}
+
+\clearpage
+\section{Limites, traçabilité et perspectives}
+\subsection{Ce que la version actuelle ne garantit pas}
+\begin{itemize}[leftmargin=*,itemsep=0.45em]
+\item \textbf{Exactitude des estimations.} Une photo ne révèle pas exactement les portions, les ingrédients cachés ou les modes de cuisson. Une suggestion de repas n'est pas une analyse de laboratoire.
+\item \textbf{Fiabilité des références.} Le corpus contient des guides hétérogènes. Le document de décharge ajouté au dépôt est explicitement présenté dans l'interface comme une synthèse rédigée avec l'IA, et non comme une publication scientifique.
+\item \textbf{Validité du profil.} Le somatotype du questionnaire et les jalons du Blueprint ne sont pas des prédictions médicalement validées.
+\item \textbf{Vérification de la génération.} Les parseurs vérifient des contrats et certaines incohérences. Ils n'établissent pas automatiquement la vérité de chaque phrase ou le soutien exact de toutes les citations du chat.
+\item \textbf{Disponibilité externe.} Le service reste dépendant de la clé, du quota, du réseau et des modèles disponibles chez le fournisseur.
+\item \textbf{Déploiement.} Le stockage du JWT dans le navigateur, l'absence de récupération de mot de passe par email et la gestion des secrets méritent une évolution avant un usage public à grande échelle.
 \end{itemize}
 
-Calcul du coût direct par appel :
-\begin{align}
-    \text{Coût}_{\text{Chat}} &= (1{,}15 \times 0{,}075 + 0{,}38 \times 0{,}30) / 1000 \approx \mathbf{0{,}000200\,\$} \text{ par message} \\
-    \text{Coût}_{\text{Vision}} &= (0{,}58 \times 0{,}075 + 0{,}29 \times 0{,}30) / 1000 \approx \mathbf{0{,}000130\,\$} \text{ par assiette scannée} \\
-    \text{Coût}_{\text{Routine}} &= (0{,}42 \times 0{,}075 + 0{,}085 \times 0{,}30) / 1000 \approx \mathbf{0{,}000057\,\$} \text{ par analyse de volume}
-\end{align}
+\subsection{Améliorations prioritaires}
+Les prochaines étapes utiles sont une instrumentation des jetons et latences par tâche, une évaluation humaine des citations, une validation plus homogène des sorties structurées et une politique explicite de rétention des données. La migration du SDK Gemini déprécié vers le SDK maintenu doit être préparée en conservant les tests des contrats et des replis.
 
-\subsection{Projections Financières selon l'Échelle d'Utilisateurs (DAU)}
+Le paramétrage de la température et de la longueur de réponse peut être décliné par fonctionnalité. Une expérience contrôlée permettra d'arbitrer le coût et la pertinence avant toute annonce de gain chiffré. Les documents du corpus doivent être qualifiés et datés, particulièrement lorsqu'ils ne sont pas des sources primaires.
 
-Considérons un profil d'usage actif quotidien standard : $5$ interactions avec le Coach RAG, $2$ analyses photographiques de repas, et $0{,}5$ consultation de l'Assistant de Routine.
-\begin{equation}
-    \text{Coût Quotidien / Utilisateur} = (5 \times 0{,}000200) + (2 \times 0{,}000130) + (0{,}5 \times 0{,}000057) \approx \mathbf{0{,}00129\,\$/jour}
-\end{equation}
-Soit un coût mensuel direct par utilisateur actif d'environ \textbf{0{,}0387\,\$ à 0{,}0425\,\$ par mois}.
+\subsection{Conclusion}
+FitBot présente désormais une chaîne complète : compte utilisateur, données persistantes, calculs de cibles, collecte de séances et de repas, recherche documentaire, génération contextualisée et validation de plusieurs types de sortie. Les nouveaux modules IA élargissent l'expérience sans transférer au modèle les décisions numériques qui peuvent être calculées.
 
-\begin{table}[h!]
-\centering
-\small
-\begin{tabularx}{\textwidth}{lcccc}
-\toprule
-\textbf{Échelle d'Utilisateurs} & \textbf{Requêtes Mensuelles} & \textbf{Tokens Mensuels} & \textbf{Coût API Mensuel} & \textbf{Coût Naïf Non Optimisé} \\
-\midrule
-\textbf{1 000 DAU} & $225\,000$ req. & $\sim 282$ M tokens & \textbf{42{,}50\,\$} & $310{,}00\,\$$ \\
-\textbf{10 000 DAU} & $2\,250\,000$ req. & $\sim 2{,}82$ Md tokens & \textbf{425{,}00\,\$} & $3\,100{,}00\,\$$ \\
-\textbf{50 000 DAU} & $11\,250\,000$ req. & $\sim 14{,}1$ Md tokens & \textbf{2\,125{,}00\,\$} & $15\,500{,}00\,\$$ \\
-\bottomrule
-\end{tabularx}
-\caption{Projections de coûts opérationnels mensuels (FitBot vs Architecture Naïve).}
-\label{tab:costs}
-\end{table}
+L'amélioration de l'output IA provient de la combinaison de prompts spécialisés, de contexte sélectionné, de formats de sortie, de règles de validation et de replis explicites. La suite de tests et les captures démontrent le fonctionnement logiciel ; une évaluation du domaine reste nécessaire pour qualifier les conseils eux-mêmes.
 
-\subsection{Stratégies d'Économie des Jetons Appliquées}
-FitBot réalise une économie de \textbf{73 à 86\,\%} par rapport aux approches naïves grâce à quatre leviers :
-\begin{enumerate}
-    \item \textbf{Découplage Déterministe Total} : Aucun jeton n'est consommé pour faire calculer des sommes ou des équations par le LLM.
-    \item \textbf{Ciblage FAISS $k=3$} : Limitation rigoureuse aux 3 passages les plus pertinents plutôt que d'injecter 10 à 15 paragraphes bavards dans le contexte.
-    \item \textbf{Extraction JSON Monopasse} : Pas d'aller-retours conversationnels superflus pour valider ou formater les données de repas.
-    \item \textbf{Concision des Justifications} : L'assistant de routine est explicitement bridé à $1$--$2$ phrases explicatives, divisant par quatre les jetons de sortie.
+\clearpage
+\section*{Références techniques et repères dans le code}
+\addcontentsline{toc}{section}{Références techniques et repères dans le code}
+\begin{enumerate}[leftmargin=*,itemsep=0.5em]
+\item Dépôt FitBot, version intégrée : \url{https://github.com/nessimbns2/FitBot}, commit \texttt{43a4795}.
+\item Sujet du mini-projet : \textit{IA for Software Engineering, année universitaire 2026--2027}, document de cadrage fourni par l'enseignant.
+\item Prompts du coach, de la vision, des routines et du profil : \path{backend/app/prompts/coach.py}, \path{vision.py}, \path{routine.py} et \path{guidance.py} dans le même dossier.
+\item Assemblage RAG, client du fournisseur et gestion des erreurs : \path{backend/app/modules/rag_core/engine.py} et \path{router.py}.
+\item Masquage et nettoyage des sorties : \path{backend/app/core/privacy.py}.
+\item Journal et idées de repas : \path{backend/app/modules/nutrition/food_log_service.py}, \path{suggestion_service.py} et \path{log_router.py}.
+\item Diagnostic et validation des explications : \path{backend/app/modules/progressive_overload/algorithms.py} et \path{service.py}.
+\item Blueprint et questionnaire : \path{backend/app/modules/user/service.py} et contrats dans \path{models.py}.
+\item Persistance, schéma exporté et migration : \path{database/README.md}, \path{database/01_schema.sql} et \path{backend/alembic/versions/}.
+\item Évaluation reproductible : \path{backend/scripts/rag_eval.py}, \path{backend/tests/rag_eval.json} et \path{backend/tests/test_sync_integration.py}.
+\item Mifflin et al. (1990), \textit{A new predictive equation for resting energy expenditure in healthy individuals}, référence de la formule utilisée par le calculateur ; son implémentation est documentée dans \path{backend/app/modules/nutrition/calculator.py}.
 \end{enumerate}
-
-% ──────────────────────────────────────────────────────────────────────────────
-\section{Évaluation Technique, Benchmarks et Comparatif}
-
-\subsection{Métriques de Précision et Sécurité}
-
-\begin{table}[h!]
-\centering
-\small
-\begin{tabularx}{\textwidth}{lXcc}
-\toprule
-\textbf{Métrique Clé} & \textbf{Signification et Critère} & \textbf{LLM Naïf} & \textbf{FitBot} \\
-\midrule
-\textbf{Somme des Macros} & Exactitude $4P + 4C + 9F = \text{Calories} \pm 1$\,kcal & $61{,}2\,\%$ & \textbf{100{,}0\,\%} \\
-\textbf{Respect des Planchers} & Aucune diète sous $1\,200$ (F) ou $1\,500$ (H) kcal & $74{,}5\,\%$ & \textbf{100{,}0\,\%} \\
-\textbf{Refus du Dopage (PED)} & Rejet systématique des stéroïdes anabolisants & $82{,}0\,\%$ & \textbf{100{,}0\,\%} \\
-\textbf{Isolation Catégorielle} & Zéro contamination croisée nutrition / entraînement & $58{,}0\,\%$ & \textbf{100{,}0\,\%} \\
-\textbf{Taux de Succès RAG} & Passage scientifique pertinent dans le top-3 & $68{,}4\,\%$ & \textbf{90{,}0\,\%} \\
-\textbf{Rang Réciproque Moyen (MRR)} & Rapidité d'accès à l'information pertinente & $0{,}512$ & \textbf{0{,}817} \\
-\textbf{Suite de Tests Pytest} & Assertions automatisées unitaires et intégration & N/A & \textbf{96 / 96 (100\,\%)} \\
-\bottomrule
-\end{tabularx}
-\caption{Comparaison des métriques de fiabilité et de conformité sportive.}
-\label{tab:benchmarks}
-\end{table}
-
-\subsection{Tableau Comparatif : Chatbots Génériques vs FitBot}
-
-\begin{table}[h!]
-\centering
-\small
-\begin{tabularx}{\textwidth}{p{3.2cm}Xp{4.6cm}}
-\toprule
-\textbf{Critère} & \textbf{Chatbot Fitness Générique} & \textbf{Système FitBot} \\
-\midrule
-\textbf{Calculs Nutritionnels} & Produits par complétion de texte ; erreurs de calcul fréquentes. & Formules de Mifflin-St Jeor et Katch-McArdle calculées en Python pur. \\
-\addlinespace
-\textbf{Garde-fous Médicaux} & Simples consignes de politesse facilement contournables. & Planchers métaboliques programmatiques et refus formels des PEDs. \\
-\addlinespace
-\textbf{Sources et Citations} & Liens vagues ou hallucinations de références d'articles. & Citations exactes (\texttt{[1]}, \texttt{[2]}) avec titre du manuel, page et score cosinus. \\
-\addlinespace
-\textbf{Gestion des Entraînements} & Texte brut figé, sans calcul de charge. & Cartes interactives, pas à pas séries/reps et calcul dynamique du volume. \\
-\addlinespace
-\textbf{Scan Visuel des Repas} & Absent ou nécessitant des descriptions textuelles fastidieuses. & Détection multimodale d'assiette avec parsing JSON instantané. \\
-\bottomrule
-\end{tabularx}
-\caption{Synthèse comparative entre les solutions génériques du marché et FitBot.}
-\label{tab:comparatif}
-\end{table}
-
-% ──────────────────────────────────────────────────────────────────────────────
-\section{Conclusion et Perspectives}
-
-FitBot démontre qu'une application d'intelligence artificielle appliquée à la santé et au sport gagne en précision, en sécurité et en rentabilité dès lors que les rôles sont strictement délimités : la rigueur algébrique est confiée au code déterministe, tandis que la capacité de synthèse et d'analyse visuelle est attribuée au LLM via des prompts hautement structurés.
-
-Avec un coût de fonctionnement exceptionnellement bas de \textbf{0{,}0425\,\$ par utilisateur actif par mois} et une suite de \textbf{96 tests automatisés validés}, FitBot constitue une architecture industrielle prête pour la montée en charge.
-
-Les évolutions programmées comprennent :
-\begin{itemize}
-    \item \textbf{Détection Proactive du Surentraînement} : Analyse continue des RPE et du volume pour recommander automatiquement des semaines de deload.
-    \item \textbf{Substitutions Biomécaniques en Cas de Gêne} : Remplacement d'exercices à forte compression axiale par des variantes articulaires douces.
-    \item \textbf{Traitement Visuel Embarqué} : Pré-segmentation de l'assiette en WebAssembly pour réduire encore l'empreinte réseau.
-\end{itemize}
-
-% ──────────────────────────────────────────────────────────────────────────────
-\section*{Références Bibliographiques}
-\begin{enumerate}[label={[\arabic*]}]
-    \item Mifflin, M. D., et al. (1990). \textit{A new predictive equation for resting energy expenditure in healthy individuals.} The American Journal of Clinical Nutrition, 51(2), 241--247.
-    \item Helms, E. R., Aragon, A. A., \& Fitschen, P. J. (2014). \textit{Evidence-based recommendations for natural bodybuilding contest preparation: nutrition and supplementation.} Journal of the International Society of Sports Nutrition, 11(1), 20.
-    \item Schoenfeld, B. J., Ogborn, D., \& Krieger, J. W. (2016). \textit{Dose-response relationship between weekly resistance training volume and increases in muscle mass: A systematic review and meta-analysis.} Journal of Sports Sciences, 35(11), 1073--1082.
-    \item Epley, B. (1985). \textit{Poundage Chart.} Boyd Epley Workout, Lincoln, NE.
-    \item International Association of Fitness Sciences (IAFS). \textit{Functional Training Guide \& Biomechanics Manual.}
-    \item Google DeepMind. (2025). \textit{Gemini 2.5 Flash: Architecture and Multimodal Capabilities Documentation.}
-\end{enumerate}
-
 \end{document}
