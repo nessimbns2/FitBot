@@ -83,7 +83,7 @@ export function DesignGalleryView() {
         {/* Section 1: Color Tokens & WCAG AA Contrast Verification */}
         <Card title="Color Tokens & Contrast Verification" subtitle="Action Accent is Electric Violet (distinct from Protein Blue). Fixed macronutrient colors.">
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-            <div className="p-4 rounded-xl bg-[var(--accent-primary)] text-white text-xs font-semibold shadow-xs">
+            <div className="p-4 rounded-xl bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-xs font-semibold shadow-xs">
               <span className="block font-bold">Accent Action</span>
               <span className="opacity-80">Electric Violet</span>
             </div>

@@ -21,7 +21,6 @@ import {
   Sun,
   Moon,
   ChevronRight,
-  ShieldCheck,
   LogOut,
 } from 'lucide-react';
 import { useProfile } from '../context/ProfileContext';
@@ -42,7 +41,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Overview',
     items: [
-      { to: '/', label: 'Today', icon: Sparkles },
+      { to: '/dashboard', label: 'Today', icon: Sparkles },
       { to: '/coach', label: 'Coach Chat', icon: MessageSquare },
     ],
   },
@@ -100,7 +99,7 @@ export function Sidebar() {
       <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)] min-h-[64px]">
         {!isCollapsed && (
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-xl bg-[var(--accent-primary)] flex items-center justify-center text-white shadow-xs shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-[var(--accent-primary)] flex items-center justify-center text-[var(--text-on-accent)] shadow-xs shrink-0">
               <Dumbbell className="w-4 h-4" />
             </div>
             <div className="truncate">
@@ -119,7 +118,7 @@ export function Sidebar() {
 
         {isCollapsed && (
           <div className="w-full flex justify-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--accent-primary)] flex items-center justify-center text-white shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-[var(--accent-primary)] flex items-center justify-center text-[var(--text-on-accent)] shadow-xs">
               <Dumbbell className="w-4 h-4" />
             </div>
           </div>
@@ -148,7 +147,7 @@ export function Sidebar() {
               <NavLink
                 key={to}
                 to={to}
-                end={to === '/'}
+                end={to === '/dashboard'}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
                     isCollapsed ? 'justify-center' : ''
@@ -169,7 +168,7 @@ export function Sidebar() {
                       />
                       {!isCollapsed && <span className="truncate">{label}</span>}
                       {!isCollapsed && badge && (
-                        <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--accent-primary)] text-white">
+                        <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--accent-primary)] text-[var(--text-on-accent)]">
                           {badge}
                         </span>
                       )}
@@ -282,7 +281,7 @@ export function MobileTopBar() {
 
   const getPageTitle = (path: string) => {
     switch (path) {
-      case '/': return 'Today';
+      case '/dashboard': return 'Today';
       case '/coach': return 'Coach Chat';
       case '/nutrition': return 'Nutrition & Macros';
       case '/workouts': return 'Workout Planner';
@@ -296,7 +295,7 @@ export function MobileTopBar() {
   return (
     <header className="md:hidden sticky top-0 z-40 bg-[var(--bg-card)]/90 backdrop-blur-md border-b border-[var(--border-subtle)] px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-lg bg-[var(--accent-primary)] flex items-center justify-center text-white shadow-xs">
+        <div className="w-7 h-7 rounded-lg bg-[var(--accent-primary)] flex items-center justify-center text-[var(--text-on-accent)] shadow-xs">
           <Dumbbell className="w-3.5 h-3.5" />
         </div>
         <span className="text-sm font-bold text-[var(--text-primary)] tracking-tight">
@@ -344,7 +343,7 @@ export function MobileTopBar() {
 }
 
 const MOBILE_NAV_ITEMS = [
-  { to: '/', label: 'Today', icon: Sparkles },
+  { to: '/dashboard', label: 'Today', icon: Sparkles },
   { to: '/coach', label: 'Coach', icon: MessageSquare },
   { to: '/nutrition', label: 'Nutrition', icon: Utensils },
   { to: '/workouts', label: 'Workouts', icon: Dumbbell },
@@ -358,7 +357,7 @@ export function MobileTabBar() {
         <NavLink
           key={to}
           to={to}
-          end={to === '/'}
+          end={to === '/dashboard'}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 px-2 rounded-xl text-[10px] font-semibold transition-all active:scale-95 ${
               isActive

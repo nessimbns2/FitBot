@@ -24,19 +24,25 @@ from app.modules.exercises.generator import (
     RoutineResult,
     SplitType,
     generate_routine,
+    REP_RANGES, REST_SECONDS,
 )
 from app.modules.exercises.service import get_exercise, list_exercises
 from app.modules.rag_core.engine import get_llm_client, get_vector_store
 from app.modules.user.models import ExperienceLevel, Goal
 from app.core.privacy import redact_pii, validate_llm_output
 from app.modules.auth.dependencies import CurrentUser
-from app.modules.exercises.models import SavedRoutine, SavedRoutineRead, SavedRoutineWrite
+from app.modules.exercises.models import ExerciseRecommendation, SavedRoutine, SavedRoutineRead, SavedRoutineWrite
+from app.modules.exercises.planner_router import router as planner_router
 from app.modules.user.service import get_or_create_profile
+from app.modules.exercises.routine_state import canonical_routine
+from app.modules.exercises.training_rules import eligible, fits_day, volume_target
 
 router = APIRouter(
     prefix="/api/exercises",
     tags=["exercises"],
 )
+
+router.include_router(planner_router)
 
 
 class GenerateRoutineRequest(BaseModel):
@@ -79,12 +85,14 @@ class ExerciseSuggestionItem(BaseModel):
     sets: int = 3
     rep_range: str = "8-12"
     reason: str
+    rest_seconds: int = 90
 
 
 class AISuggestExerciseRequest(BaseModel):
     routine: Dict[str, Any]
-    goal: Optional[str] = "hypertrophy"
-    experience_level: Optional[str] = "intermediate"
+    goal: Optional[Goal] = None
+    experience_level: Optional[ExperienceLevel] = None
+    available_equipment: Optional[List[Equipment]] = None
 
 
 class AISuggestExerciseResponse(BaseModel):
@@ -148,13 +156,14 @@ def create_routine(
         else list(Equipment)
     )
 
-    return generate_routine(
-        split=split,
-        days_per_week=days_per_week,
-        experience_level=experience_level,
-        goal=goal,
-        available_equipment=available_equipment,
-    )
+    try:
+        return generate_routine(
+            split=split, days_per_week=days_per_week, experience_level=experience_level,
+            goal=goal, available_equipment=available_equipment,
+        )
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
 
 
 @router.post(
@@ -273,179 +282,64 @@ def get_body_type_guidance(
     response_model=AISuggestExerciseResponse,
     summary="AI analysis of routine balance and exercise suggestion",
 )
-def ai_suggest_exercise(
-    req: AISuggestExerciseRequest,
-) -> AISuggestExerciseResponse:
-    """Analyze current routine volume, muscle balance, and suggest an exercise to add or confirm all is good."""
-    days = req.routine.get("days", [])
+def ai_suggest_exercise(req: AISuggestExerciseRequest, user: CurrentUser, session: Annotated[Session, Depends(get_session)]) -> AISuggestExerciseResponse:
+    """Suggest only additions compatible with the same level, equipment and session rules as generation."""
+    profile = get_or_create_profile(session, user.id)
+    level, goal = req.experience_level or profile.experience_level, req.goal or profile.goal
+    try:
+        routine = canonical_routine(req.routine, level, goal, req.available_equipment)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error
+    days = routine["days"]
     if not days:
-        return AISuggestExerciseResponse(
-            is_all_good=False,
-            message="No workout days found in your routine to analyze. Generate or add workout days first.",
-            volume_analysis={},
-        )
-
-    catalog = get_catalog()
-    weekly_sets: Dict[str, int] = {}
-    existing_exercise_ids: set[str] = set()
-
-    for day in days:
-        for ex in day.get("exercises", []):
-            ex_id = ex.get("exercise_id") or ex.get("id") or ""
-            if ex_id:
-                existing_exercise_ids.add(ex_id)
-
-            cat_ex = catalog.get(ex_id)
-            muscle = ex.get("primary_muscle") or (cat_ex.primary_muscle.value if cat_ex else "other")
-            try:
-                num_sets = int(ex.get("sets", 3))
-            except (ValueError, TypeError):
-                num_sets = 3
-            weekly_sets[muscle] = weekly_sets.get(muscle, 0) + num_sets
-
-    # Define evidence-based hypertrophy volume targets (10-20 sets)
-    thresholds = {
-        "chest": 10,
-        "back": 10,
-        "quads": 10,
-        "hamstrings": 8,
-        "delts": 10,
-        "arms": 8,
-        "core": 6,
-    }
-
-    if req.experience_level == "beginner":
-        thresholds = {k: max(6, v - 3) for k, v in thresholds.items()}
-    elif req.goal == "strength":
-        thresholds = {"chest": 8, "back": 8, "quads": 8, "hamstrings": 6, "delts": 8, "arms": 6, "core": 6}
-
-    # Find deficits
-    deficits: List[tuple[str, int, int, int]] = []
-    for muscle, target in thresholds.items():
-        current = weekly_sets.get(muscle, 0)
-        if current < target:
-            deficits.append((muscle, target - current, current, target))
-
-    # Sort largest deficit first
-    deficits.sort(key=lambda x: x[1], reverse=True)
-
-    # Check if balanced
+        return AISuggestExerciseResponse(is_all_good=False, message="No workout days found. Generate a routine first.")
+    weekly_sets = routine["weekly_sets_per_muscle"]
+    bounds = routine["volume_target"]
+    analysis = {"weekly_sets": weekly_sets, "target": bounds, "counting": "primary_muscle_only"}
+    if any(count > bounds["maximum"] for count in weekly_sets.values()):
+        return AISuggestExerciseResponse(is_all_good=False, message="Some muscles exceed the configured planning range. Review the sets before adding exercises.", volume_analysis=analysis)
+    deficits = sorted(((muscle, bounds["minimum"] - count) for muscle, count in weekly_sets.items() if count < bounds["minimum"]), key=lambda item: (-item[1], item[0]))
     if not deficits:
-        return AISuggestExerciseResponse(
-            is_all_good=True,
-            message="It's all good! Your routine is well-balanced across all major muscle groups and meets the 10–20 weekly set hypertrophy target. No additional exercise is needed.",
-            suggested_exercise=None,
-            volume_analysis={
-                "weekly_sets": weekly_sets,
-                "status": "optimal",
-                "summary": "All muscle groups hit their target weekly volume.",
-            },
-        )
-
-    # Pick candidate from catalog
-    chosen_ex: Optional[Exercise] = None
-    target_muscle = deficits[0][0]
-    current_sets = deficits[0][2]
-    target_sets = deficits[0][3]
-
-    for m_def, _, cur, tgt in deficits:
-        candidates = [
-            ex for ex in catalog.values()
-            if (ex.primary_muscle.value == m_def or m_def in [m.value for m in ex.secondary_muscles])
-            and ex.id not in existing_exercise_ids
-        ]
-        if candidates:
-            # Prefer compound exercises matching the primary muscle
-            candidates.sort(key=lambda x: (x.primary_muscle.value == m_def, x.is_compound), reverse=True)
-            chosen_ex = candidates[0]
-            target_muscle = m_def
-            current_sets = cur
-            target_sets = tgt
-            break
-
-    if not chosen_ex:
-        return AISuggestExerciseResponse(
-            is_all_good=True,
-            message="It's all good! Your routine covers all primary movement patterns available in the catalog. No further exercises needed.",
-            suggested_exercise=None,
-            volume_analysis={"weekly_sets": weekly_sets, "status": "sufficient"},
-        )
-
-    # Determine optimal day to add
-    keywords_map = {
-        "chest": ["push", "chest", "upper"],
-        "delts": ["push", "shoulder", "delt", "upper"],
-        "arms": ["push", "pull", "arm", "upper"],
-        "back": ["pull", "back", "upper"],
-        "quads": ["leg", "lower", "quad"],
-        "hamstrings": ["leg", "lower", "posterior", "hamstring"],
-        "core": ["core", "abs", "full", "lower"],
-    }
-    keywords = keywords_map.get(target_muscle, [])
-    target_day_index = 0
-    target_day_name = days[0].get("name", "Day 1")
-    matched = False
-
-    for idx, d in enumerate(days):
-        d_text = f"{d.get('name', '')} {d.get('focus', '')}".lower()
-        if any(kw in d_text for kw in keywords):
-            target_day_index = idx
-            target_day_name = d.get("name", f"Day {idx + 1}")
-            matched = True
-            break
-
-    if not matched:
-        fewest_idx = min(range(len(days)), key=lambda i: len(days[i].get("exercises", [])))
-        target_day_index = fewest_idx
-        target_day_name = days[fewest_idx].get("name", f"Day {fewest_idx + 1}")
-
-    rep_range = "8-12" if req.goal == "hypertrophy" else "6-8"
-    default_reason = (
-        f"{target_muscle.capitalize()} currently has only {current_sets} weekly sets (target is {target_sets}–20 sets). "
-        f"Adding {chosen_ex.name} to {target_day_name} delivers 3 high-stimulus sets to bridge your volume gap without overloading recovery."
-    )
-
-    reason = default_reason
+        return AISuggestExerciseResponse(is_all_good=True, message="All good: primary-muscle volume is within the configured planning range. This does not assess technique, recovery or medical suitability.", volume_analysis=analysis)
+    catalog = get_catalog()
+    equipment = [Equipment(value) for value in routine["available_equipment"]]
+    existing = {item["exercise_id"] for day in days for item in day["exercises"]}
+    choice = None
+    for muscle, deficit in deficits:
+        candidates = sorted((ex for ex in catalog.values() if ex.primary_muscle.value == muscle and ex.id not in existing and eligible(ex, equipment, level)), key=lambda ex: (not ex.is_compound, ex.id))
+        for exercise in candidates:
+            possible_days = [(index, day) for index, day in enumerate(days) if len(day["exercises"]) < 20 and fits_day(exercise, day.get("name", ""), day.get("focus", ""))]
+            if possible_days:
+                index, day = min(possible_days, key=lambda item: (sum(ex["sets"] for ex in item[1]["exercises"]), item[0]))
+                choice = (exercise, index, day, min(3, deficit, bounds["maximum"] - weekly_sets[muscle]))
+                break
+        if choice: break
+    if not choice:
+        return AISuggestExerciseResponse(is_all_good=False, message="Volume gaps remain, but no additional exercise matches the equipment, experience and existing session focus. Review sets, available equipment or the split.", volume_analysis=analysis)
+    exercise, index, day, sets = choice
+    kind = "compound" if exercise.is_compound else "isolation"
+    rep_range, rest_seconds = REP_RANGES[goal][kind], REST_SECONDS[goal][kind]
+    muscle = exercise.primary_muscle.value
+    reason = f"{muscle.capitalize()} has {weekly_sets[muscle]} planned sets (configured range {bounds['minimum']}–{bounds['maximum']}). Adding {sets} sets of {exercise.name} fits your equipment, experience and this session's focus."
     try:
         from app.prompts import ROUTINE_SUGGESTION_SYSTEM_PROMPT, ROUTINE_SUGGESTION_USER_TEMPLATE
-
-        llm = get_llm_client()
         user_msg = ROUTINE_SUGGESTION_USER_TEMPLATE.format(
-            current_sets=current_sets,
-            target_muscle=target_muscle,
-            target_sets=target_sets,
-            exercise_name=chosen_ex.name,
-            rep_range=rep_range,
-            target_day_name=target_day_name,
-            goal=req.goal,
+            current_sets=weekly_sets[muscle], target_muscle=muscle, target_sets=bounds["minimum"],
+            maximum_sets=bounds["maximum"], exercise_name=exercise.name, rep_range=rep_range,
+            target_day_name=f"Day {index + 1}", goal=goal.value, sets=sets,
         )
-        ai_resp = llm.complete(messages=[{"role": "user", "content": user_msg}], system=ROUTINE_SUGGESTION_SYSTEM_PROMPT)
-        ai_resp = validate_llm_output(ai_resp)
-        if ai_resp and len(ai_resp) > 10:
-            reason = ai_resp
+        answer = get_llm_client().complete(messages=[{"role": "user", "content": user_msg}], system=ROUTINE_SUGGESTION_SYSTEM_PROMPT)
+        # Keep computed constraints as the authoritative rationale, with prose clearly additional.
+        answer = validate_llm_output(answer)
+        if answer: reason += " Coach note: " + answer
     except Exception:
         pass
-
     return AISuggestExerciseResponse(
-        is_all_good=False,
-        message=f"We found an opportunity to balance your {target_muscle} volume.",
-        suggested_exercise=ExerciseSuggestionItem(
-            exercise_id=chosen_ex.id,
-            name=chosen_ex.name,
-            primary_muscle=chosen_ex.primary_muscle.value,
-            equipment=chosen_ex.equipment.value,
-            day_index=target_day_index,
-            day_name=target_day_name,
-            sets=3,
-            rep_range=rep_range,
-            reason=reason,
-        ),
-        volume_analysis={
-            "weekly_sets": weekly_sets,
-            "target_muscle": target_muscle,
-            "current_sets": current_sets,
-            "target_sets": target_sets,
-        },
+        is_all_good=False, message="An eligible addition is available for a volume gap.",
+        suggested_exercise=ExerciseSuggestionItem(exercise_id=exercise.id, name=exercise.name,
+            primary_muscle=muscle, equipment=exercise.equipment.value, day_index=index,
+            day_name=day.get("name", f"Day {index + 1}"), sets=sets, rep_range=rep_range,
+            rest_seconds=rest_seconds, reason=reason), volume_analysis=analysis,
     )
 
 
@@ -455,7 +349,11 @@ def ai_suggest_exercise(
 @router.get("/routine", response_model=Optional[SavedRoutineRead], summary="Get the user's saved routine")
 def get_saved_routine(user: CurrentUser, session: Annotated[Session, Depends(get_session)]):
     """Return the routine the user is following, or null if none was saved yet."""
-    return session.exec(select(SavedRoutine).where(SavedRoutine.user_id == user.id)).first()
+    saved = session.exec(select(SavedRoutine).where(SavedRoutine.user_id == user.id)).first()
+    if saved is None: return None
+    profile = get_or_create_profile(session, user.id)
+    routine = canonical_routine(saved.routine, profile.experience_level, profile.goal, strict=False)
+    return SavedRoutineRead(split=saved.split, days_per_week=saved.days_per_week, routine=routine, updated_at=saved.updated_at)
 
 
 @router.put("/routine", response_model=SavedRoutineRead, summary="Save (replace) the user's routine")
@@ -466,10 +364,31 @@ def save_routine(
 ):
     if not isinstance(data.routine.get("days"), list):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Routine must contain a 'days' list.")
+    profile = get_or_create_profile(session, user.id)
+    try:
+        data.routine = canonical_routine(data.routine, profile.experience_level, profile.goal)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error
     saved = session.exec(select(SavedRoutine).where(SavedRoutine.user_id == user.id)).first()
     if saved is None:
         saved = SavedRoutine(user_id=user.id, split=data.split, days_per_week=data.days_per_week, routine=data.routine)  # type: ignore[arg-type]
     else:
+        previous_ids = {ex.get("exercise_id") for day in saved.routine.get("days", []) for ex in day.get("exercises", [])}
+        next_ids = {ex.get("exercise_id") for day in data.routine.get("days", []) if isinstance(day, dict)
+                    for ex in day.get("exercises", []) if isinstance(ex, dict)}
+        removed = previous_ids - next_ids
+        if removed:
+            # Only previously accepted suggestions become replacement feedback.
+            # Other unselected or merely viewed exercises are never labelled.
+            accepted = session.exec(select(ExerciseRecommendation).where(
+                ExerciseRecommendation.user_id == user.id,
+                ExerciseRecommendation.exercise_id.in_(removed),
+                ExerciseRecommendation.feedback == "accepted",
+            )).all()
+            for recommendation in accepted:
+                recommendation.feedback = "replaced"
+                recommendation.feedback_at = datetime.now(timezone.utc)
+                session.add(recommendation)
         saved.split = data.split
         saved.days_per_week = data.days_per_week
         saved.routine = data.routine

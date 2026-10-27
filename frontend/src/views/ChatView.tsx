@@ -346,7 +346,7 @@ export function ChatView() {
       {/* Top Header */}
       <div className="h-16 border-b border-[var(--border-subtle)] px-6 flex items-center justify-between bg-[var(--bg-card)]/80 backdrop-blur-md shrink-0 z-10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-[var(--accent-primary)] flex items-center justify-center text-white shadow-xs">
+          <div className="w-8 h-8 rounded-xl bg-[var(--accent-primary)] flex items-center justify-center text-[var(--text-on-accent)] shadow-xs">
             <MessageSquare className="w-4 h-4" />
           </div>
           <div>
@@ -432,7 +432,7 @@ export function ChatView() {
                   <div
                     className={`max-w-[88%] sm:max-w-[80%] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm leading-relaxed ${
                       isUser
-                        ? 'bg-[var(--accent-primary)] text-white shadow-xs rounded-br-xs'
+                        ? 'bg-[var(--accent-primary)] text-[var(--text-on-accent)] shadow-xs rounded-br-xs'
                         : 'bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-subtle)] shadow-xs rounded-bl-xs'
                     }`}
                   >
@@ -644,7 +644,7 @@ export function ChatView() {
                 onClick={() => handleSendMessage()}
                 disabled={!inputMessage.trim()}
                 aria-label="Send message"
-                className="w-10 h-10 rounded-xl bg-[var(--accent-primary)] text-white flex items-center justify-center hover:bg-[var(--accent-primary-hover)] disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer shrink-0 shadow-xs"
+                className="w-10 h-10 rounded-xl bg-[var(--accent-primary)] text-[var(--text-on-accent)] flex items-center justify-center hover:bg-[var(--accent-primary-hover)] disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer shrink-0 shadow-xs"
               >
                 <Send className="w-4 h-4" />
               </button>

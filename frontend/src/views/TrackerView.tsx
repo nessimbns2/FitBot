@@ -393,7 +393,7 @@ export function TrackerView() {
                   type="button"
                   onClick={() => setSelectedExerciseId(exId)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer shrink-0 ${isSelected
-                      ? 'bg-[var(--accent-primary)] text-white shadow-xs'
+                      ? 'bg-[var(--accent-primary)] text-[var(--text-on-accent)] shadow-xs'
                       : 'bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
                     }`}
                 >
@@ -681,7 +681,7 @@ export function TrackerView() {
                               type="button"
                               onClick={() => handleUpdateSet(idx, 'rpe', rpeVal)}
                               className={`px-2.5 py-1 rounded-lg text-xs font-sans tabular-nums font-bold transition-all cursor-pointer ${s.rpe === rpeVal
-                                  ? 'bg-[var(--accent-primary)] text-white shadow-xs'
+                                  ? 'bg-[var(--accent-primary)] text-[var(--text-on-accent)] shadow-xs'
                                   : 'bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                 }`}
                             >

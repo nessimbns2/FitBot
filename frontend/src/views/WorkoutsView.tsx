@@ -10,9 +10,11 @@
  * - Dismissible somatotype guidance tip card with CTA if unknown
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '../context/ProfileContext';
+import { SmartAlternatives } from '../components/workouts/SmartAlternatives';
+import { PreferenceLearning, RoutineExplanation } from '../components/workouts/PlannerInsights';
 import {
   getCatalogExercises,
   generateRoutine,
@@ -21,19 +23,17 @@ import {
   getAISuggestExercise,
   getSavedRoutine,
   saveRoutine as apiSaveRoutine,
-  deleteSavedRoutine,
+  recordExerciseFeedback,
 } from '../api/client';
 import {
   PageHeader,
   Card,
   Tabs,
-  TabContent,
   SegmentedControl,
   Button,
   Badge,
   Drawer,
   Dialog,
-  Field,
   Select,
   Skeleton,
   Toast,
@@ -41,15 +41,11 @@ import {
 import {
   Dumbbell,
   Search,
-  Filter,
   Sparkles,
   ChevronRight,
   AlertTriangle,
   Play,
   X,
-  BookOpen,
-  Info,
-  Calendar,
   Layers,
   Send,
   Loader2,
@@ -98,10 +94,12 @@ interface RoutineDay {
 }
 
 interface RoutineResult {
-  split_type: string;
+  split: string;
   days_per_week: number;
   days: RoutineDay[];
-  weekly_volume_per_muscle: Record<string, number>;
+  weekly_sets_per_muscle: Record<string, number>;
+  volume_target: { minimum: number; maximum: number };
+  available_equipment: string[];
   warnings?: string[];
 }
 
@@ -130,6 +128,9 @@ export function WorkoutsView() {
   const [daysPerWeek, setDaysPerWeek] = useState<number>(4);
   const [routineResult, setRoutineResult] = useState<RoutineResult | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [learningRefresh, setLearningRefresh] = useState(0);
+  const [availableEquipment, setAvailableEquipment] = useState<string[]>(['barbell', 'dumbbell', 'cables', 'bodyweight']);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Swap / Add Exercise Modal State
   const [swapModal, setSwapModal] = useState<{
@@ -172,6 +173,7 @@ export function WorkoutsView() {
       sets: number;
       rep_range: string;
       reason: string;
+      rest_seconds: number;
     } | null;
     volumeAnalysis?: any;
   } | null>(null);
@@ -218,11 +220,12 @@ export function WorkoutsView() {
           setSplit(saved.split);
           setDaysPerWeek(saved.days_per_week);
           setRoutineResult(saved.routine);
+          if (saved.routine.available_equipment) setAvailableEquipment(saved.routine.available_equipment);
         } else {
           handleGenerateRoutine();
         }
       })
-      .catch(() => handleGenerateRoutine());
+      .catch((err) => setToast({ type: 'error', message: err.message || 'Could not load your saved routine. Please retry.' }));
   }, []);
 
   useEffect(() => {
@@ -244,11 +247,18 @@ export function WorkoutsView() {
     return map;
   };
 
-  const saveRoutine = (updatedRoutine: RoutineResult, splitValue = split, daysValue = daysPerWeek) => {
-    setRoutineResult(updatedRoutine);
-    apiSaveRoutine(splitValue, daysValue, updatedRoutine).catch((err: any) =>
-      setToast({ type: 'error', message: err.message || 'Could not save your routine' })
-    );
+  const saveRoutine = async (updatedRoutine: RoutineResult, splitValue = routineResult?.split || split, daysValue = routineResult?.days_per_week || daysPerWeek) => {
+    if (isSaving) return false;
+    setIsSaving(true);
+    try {
+      const saved = await apiSaveRoutine(splitValue, daysValue, { ...updatedRoutine, available_equipment: availableEquipment });
+      setRoutineResult(saved.routine);
+      setLearningRefresh(value => value + 1);
+      return true;
+    } catch (err) {
+      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Could not save your routine' });
+      return false;
+    } finally { setIsSaving(false); }
   };
 
   const handleGenerateRoutine = async (splitParam?: string, daysParam?: number) => {
@@ -259,11 +269,11 @@ export function WorkoutsView() {
       const data = await generateRoutine({
         split: targetSplit,
         days_per_week: Number(targetDays),
-        experience_level: profile?.experience_level || 'intermediate',
-        goal: profile?.goal || 'hypertrophy',
-        available_equipment: ['barbell', 'dumbbell', 'cables', 'bodyweight'],
+        experience_level: profile?.experience_level,
+        goal: profile?.goal,
+        available_equipment: availableEquipment,
       });
-      saveRoutine(data, targetSplit, Number(targetDays));
+      if (!await saveRoutine(data, targetSplit, Number(targetDays))) return;
       setToast({ type: 'success', message: 'New routine generated and saved to your profile!' });
     } catch (err: any) {
       setToast({ type: 'error', message: err.message || 'Failed to generate routine' });
@@ -285,7 +295,7 @@ export function WorkoutsView() {
     });
   };
 
-  const handleSelectAlternativeExercise = (newEx: ExerciseCatalogItem) => {
+  const handleSelectAlternativeExercise = async (newEx: ExerciseCatalogItem, recommendationId?: string) => {
     if (!routineResult || !swapModal) return;
 
     const days = [...routineResult.days];
@@ -305,7 +315,6 @@ export function WorkoutsView() {
         rest_sec: curr?.rest_sec || 90,
         rest_seconds: curr?.rest_seconds || 90,
       };
-      setToast({ type: 'success', message: `Swapped to ${newEx.name}` });
     } else if (swapModal.mode === 'add') {
       exercisesList.push({
         exercise_id: newEx.id,
@@ -318,7 +327,6 @@ export function WorkoutsView() {
         rest_sec: 90,
         rest_seconds: 90,
       });
-      setToast({ type: 'success', message: `Added ${newEx.name} to Day ${swapModal.dayIndex + 1}` });
     }
 
     targetDay.exercises = exercisesList;
@@ -328,14 +336,24 @@ export function WorkoutsView() {
     const updatedRoutine: RoutineResult = {
       ...routineResult,
       days,
-      weekly_volume_per_muscle: updatedVolume,
+      weekly_sets_per_muscle: updatedVolume,
     };
 
-    saveRoutine(updatedRoutine);
+    // Confirm persistence before recording an accepted recommendation.
+    if (!await saveRoutine(updatedRoutine)) throw new Error('Could not save the exercise. Please try again.');
+    setToast({ type: 'success', message: `Saved ${newEx.name} to your routine.` });
+    if (recommendationId) {
+      try {
+        await recordExerciseFeedback(recommendationId, 'accepted');
+      } catch {
+        setToast({ type: 'error', message: 'Exercise saved, but preference feedback could not be saved.' });
+      }
+    }
+    setLearningRefresh(value => value + 1);
     setSwapModal(null);
   };
 
-  const handleRemoveExercise = (dayIdx: number, exIdx: number) => {
+  const handleRemoveExercise = async (dayIdx: number, exIdx: number) => {
     if (!routineResult) return;
     const days = [...routineResult.days];
     const targetDay = { ...days[dayIdx] };
@@ -348,10 +366,10 @@ export function WorkoutsView() {
     const updatedRoutine: RoutineResult = {
       ...routineResult,
       days,
-      weekly_volume_per_muscle: updatedVolume,
+      weekly_sets_per_muscle: updatedVolume,
     };
 
-    saveRoutine(updatedRoutine);
+    if (!await saveRoutine(updatedRoutine)) return;
     setToast({
       type: 'success',
       message: `Removed ${removed?.name || (removed as any)?.exercise_name || 'exercise'}`,
@@ -371,7 +389,7 @@ export function WorkoutsView() {
     });
   };
 
-  const handleSaveCustomSetsReps = () => {
+  const handleSaveCustomSetsReps = async () => {
     if (!routineResult || !editSetsModal) return;
 
     const days = [...routineResult.days];
@@ -392,10 +410,10 @@ export function WorkoutsView() {
     const updatedRoutine: RoutineResult = {
       ...routineResult,
       days,
-      weekly_volume_per_muscle: updatedVolume,
+      weekly_sets_per_muscle: updatedVolume,
     };
 
-    saveRoutine(updatedRoutine);
+    if (!await saveRoutine(updatedRoutine)) return;
     setToast({
       type: 'success',
       message: `Updated ${curr.name || curr.exercise_name}: ${editSetsModal.sets} sets × ${editSetsModal.repRange}`,
@@ -412,8 +430,9 @@ export function WorkoutsView() {
     try {
       const res = await getAISuggestExercise(
         routineResult,
-        profile?.goal || 'hypertrophy',
-        profile?.experience_level || 'intermediate'
+        profile?.goal,
+        profile?.experience_level,
+        availableEquipment
       );
       setAiSuggestResult({
         isOpen: true,
@@ -429,7 +448,7 @@ export function WorkoutsView() {
     }
   };
 
-  const handleApplyAISuggestion = () => {
+  const handleApplyAISuggestion = async () => {
     if (!routineResult || !aiSuggestResult?.suggestedExercise) return;
     const sug = aiSuggestResult.suggestedExercise;
 
@@ -446,8 +465,8 @@ export function WorkoutsView() {
       sets: sug.sets || 3,
       rep_range: sug.rep_range || '8-12',
       rpe_target: 8,
-      rest_sec: 90,
-      rest_seconds: 90,
+      rest_sec: sug.rest_seconds,
+      rest_seconds: sug.rest_seconds,
     });
 
     targetDay.exercises = exercisesList;
@@ -457,10 +476,10 @@ export function WorkoutsView() {
     const updatedRoutine: RoutineResult = {
       ...routineResult,
       days,
-      weekly_volume_per_muscle: updatedVolume,
+      weekly_sets_per_muscle: updatedVolume,
     };
 
-    saveRoutine(updatedRoutine);
+    if (!await saveRoutine(updatedRoutine)) return;
     setToast({
       type: 'success',
       message: `Added ${sug.name} to Day ${targetDayIdx + 1}!`,
@@ -506,8 +525,8 @@ export function WorkoutsView() {
         {/* Page Header with Top Tabs */}
         <PageHeader
           title="Workout Planner & Exercise Catalog"
-          description="Deterministic hypertrophy routines calibrated by muscle group volume and verified biomechanical form cues."
-          badge={<Badge variant="accent">Volume Periodization</Badge>}
+          description="Build a routine for your experience and equipment, compare alternatives, and review explanations with sources."
+          badge={<Badge variant="accent">Routine planning</Badge>}
         />
 
         {/* Top Two Tabs: "My routine" & "Exercise library" */}
@@ -589,7 +608,7 @@ export function WorkoutsView() {
                       value={split}
                       onChange={(e) => setSplit(e.target.value)}
                       options={[
-                        { value: 'push_pull_legs', label: 'Push / Pull / Legs', hint: 'Hypertrophy optimal' },
+                        { value: 'push_pull_legs', label: 'Push / Pull / Legs', hint: 'Push, pull and leg sessions' },
                         { value: 'upper_lower', label: 'Upper / Lower', hint: 'Balanced 4-day' },
                         { value: 'full_body', label: 'Full Body', hint: '3-day efficiency' },
                       ]}
@@ -611,12 +630,25 @@ export function WorkoutsView() {
                       />
                     </div>
 
+                    <fieldset className="space-y-2">
+                      <legend className="text-xs font-semibold mb-2">Available equipment</legend>
+                      <div className="grid grid-cols-2 gap-2">
+                        {EQUIPMENT_TYPES.filter(eq => eq !== 'all').map(eq => <label key={eq} className="flex gap-2 items-center text-xs capitalize">
+                          <input type="checkbox" checked={availableEquipment.includes(eq)} disabled={isSaving || isGenerating}
+                            onChange={() => setAvailableEquipment(previous => previous.includes(eq) ? previous.filter(item => item !== eq) : [...previous, eq])}
+                            className="accent-[var(--accent-primary)]" />{eq}
+                        </label>)}
+                      </div>
+                      <p className="text-[11px] text-[var(--text-muted)]">Generate a routine to apply these settings. Suggestions use this equipment selection.</p>
+                    </fieldset>
+
                     <div className="pt-2 flex items-center gap-2">
                       <Button
                         variant="primary"
                         size="md"
                         onClick={() => handleGenerateRoutine()}
                         isLoading={isGenerating}
+                        disabled={isSaving || availableEquipment.length === 0}
                         className="flex-1"
                         leftIcon={<Sparkles className="w-4 h-4" />}
                       >
@@ -625,11 +657,8 @@ export function WorkoutsView() {
                       <Button
                         variant="secondary"
                         size="md"
-                        onClick={() => {
-                          deleteSavedRoutine()
-                            .catch(() => undefined)
-                            .finally(() => handleGenerateRoutine());
-                        }}
+                        onClick={() => handleGenerateRoutine()}
+                        disabled={isSaving || isGenerating || availableEquipment.length === 0}
                         title="Reset to algorithmic defaults"
                         leftIcon={<RotateCcw className="w-4 h-4" />}
                       >
@@ -639,16 +668,19 @@ export function WorkoutsView() {
                   </div>
                 </Card>
 
+                <PreferenceLearning refresh={learningRefresh} />
+
                 {/* Weekly Sets Per Muscle Distribution Chart */}
-                {routineResult?.weekly_volume_per_muscle && (
+                {routineResult?.weekly_sets_per_muscle && (
                   <Card
-                    title="Hypertrophy Volume Matrix"
-                    subtitle="Weekly effective sets per muscle group. Target: 10–20 sets."
+                    title="Planned weekly volume"
+                    subtitle={`Primary-muscle sets. Configured range: ${routineResult.volume_target.minimum}–${routineResult.volume_target.maximum}.`}
                   >
                     <div className="space-y-3">
-                      {Object.entries(routineResult.weekly_volume_per_muscle).map(([muscle, sets]) => {
-                        const inRange = sets >= 10 && sets <= 20;
-                        const pct = Math.min(100, Math.round((sets / 20) * 100));
+                      {Object.entries(routineResult.weekly_sets_per_muscle).map(([muscle, sets]) => {
+                        const { minimum, maximum } = routineResult.volume_target;
+                        const inRange = sets >= minimum && sets <= maximum;
+                        const pct = Math.min(100, Math.round((sets / maximum) * 100));
 
                         return (
                           <div key={muscle} className="space-y-1 text-xs">
@@ -660,8 +692,8 @@ export function WorkoutsView() {
                                 <span className="font-sans tabular-nums font-bold text-[var(--text-primary)]">
                                   {sets} sets
                                 </span>
-                                <Badge variant={inRange ? 'success' : sets > 20 ? 'warning' : 'neutral'} size="sm">
-                                  {inRange ? 'Optimal' : sets > 20 ? 'High' : 'Under 10'}
+                                <Badge variant={inRange ? 'success' : sets > maximum ? 'warning' : 'neutral'} size="sm">
+                                  {inRange ? 'In range' : sets > maximum ? 'Above range' : 'Below range'}
                                 </Badge>
                               </div>
                             </div>
@@ -669,7 +701,7 @@ export function WorkoutsView() {
                               <div
                                 style={{ width: `${pct}%` }}
                                 className={`h-full rounded-full transition-all duration-300 ${
-                                  inRange ? 'bg-emerald-500' : sets > 20 ? 'bg-amber-500' : 'bg-[var(--accent-primary)]'
+                                  inRange ? 'bg-emerald-500' : sets > maximum ? 'bg-amber-500' : 'bg-[var(--accent-primary)]'
                                 }`}
                               />
                             </div>
@@ -683,6 +715,7 @@ export function WorkoutsView() {
 
               {/* Right Column: Routine Day Cards (8 cols) */}
               <div className="lg:col-span-8 space-y-6">
+                <RoutineExplanation routine={routineResult} />
                 {/* AI Routine Assistant Card / Action */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--bg-card)] p-4 rounded-2xl border border-[var(--border-subtle)] shadow-xs">
                   <div className="flex items-center gap-3">
@@ -861,7 +894,7 @@ export function WorkoutsView() {
                         onClick={() => setSelectedMuscle(m)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all cursor-pointer ${
                           selectedMuscle === m
-                            ? 'bg-[var(--accent-primary)] text-white shadow-xs'
+                            ? 'bg-[var(--accent-primary)] text-[var(--text-on-accent)] shadow-xs'
                             : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-subtle)]'
                         }`}
                       >
@@ -884,7 +917,7 @@ export function WorkoutsView() {
                         onClick={() => setSelectedEquipment(eq)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all cursor-pointer ${
                           selectedEquipment === eq
-                            ? 'bg-[var(--accent-primary)] text-white shadow-xs'
+                            ? 'bg-[var(--accent-primary)] text-[var(--text-on-accent)] shadow-xs'
                             : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-subtle)]'
                         }`}
                       >
@@ -988,7 +1021,7 @@ export function WorkoutsView() {
                     onClick={() => setModalMuscle(m)}
                     className={`px-2.5 py-1 text-xs font-semibold rounded-lg capitalize transition-colors cursor-pointer ${
                       modalMuscle === m
-                        ? 'bg-[var(--accent-primary)] text-white'
+                        ? 'bg-[var(--accent-primary)] text-[var(--text-on-accent)]'
                         : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)]'
                     }`}
                   >
@@ -1011,7 +1044,7 @@ export function WorkoutsView() {
                     onClick={() => setModalEquipment(eq)}
                     className={`px-2.5 py-1 text-xs font-semibold rounded-lg capitalize transition-colors cursor-pointer ${
                       modalEquipment === eq
-                        ? 'bg-[var(--accent-primary)] text-white'
+                        ? 'bg-[var(--accent-primary)] text-[var(--text-on-accent)]'
                         : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)]'
                     }`}
                   >
@@ -1021,10 +1054,24 @@ export function WorkoutsView() {
               </div>
             </div>
 
+            {swapModal.mode === 'swap' && swapModal.currentExercise?.exercise_id && (
+              <SmartAlternatives
+                sourceId={swapModal.currentExercise.exercise_id}
+                equipment={modalEquipment}
+                availableEquipment={availableEquipment}
+                excludeIds={routineResult?.days[swapModal.dayIndex]?.exercises.map(ex => ex.exercise_id) || []}
+                onSelect={handleSelectAlternativeExercise}
+                onFeedback={() => setLearningRefresh(value => value + 1)}
+              />
+            )}
+
             {/* Matching Exercises List */}
             <div className="max-h-72 overflow-y-auto divide-y divide-[var(--border-subtle)] pr-1">
               {exercises
                 .filter((ex) => {
+                  if (!availableEquipment.includes(ex.equipment)) return false;
+                  const levels = { beginner: 0, intermediate: 1, advanced: 2 };
+                  if (levels[ex.difficulty] > levels[profile?.experience_level || 'beginner']) return false;
                   if (modalMuscle !== 'all' && ex.primary_muscle !== modalMuscle) return false;
                   if (modalEquipment !== 'all' && ex.equipment !== modalEquipment) return false;
                   if (modalSearch.trim()) {
@@ -1040,7 +1087,7 @@ export function WorkoutsView() {
                   return (
                     <div
                       key={ex.id}
-                      onClick={() => !isCurrent && handleSelectAlternativeExercise(ex)}
+                      onClick={() => !isCurrent && handleSelectAlternativeExercise(ex).catch((err) => setToast({ type: 'error', message: err.message || 'Could not save exercise.' }))}
                       className={`py-3 px-3 rounded-xl flex items-center justify-between gap-4 transition-colors ${
                         isCurrent
                           ? 'bg-[var(--accent-primary-subtle)]/50 cursor-default opacity-80'
@@ -1150,7 +1197,7 @@ export function WorkoutsView() {
                     onClick={() => setEditSetsModal(prev => prev ? { ...prev, repRange: range } : null)}
                     className={`py-2 px-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                       editSetsModal.repRange === range
-                        ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-xs'
+                        ? 'bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-[var(--accent-primary)] shadow-xs'
                         : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:border-[var(--accent-primary)]/50'
                     }`}
                   >
@@ -1180,7 +1227,7 @@ export function WorkoutsView() {
                     onClick={() => setEditSetsModal(prev => prev ? { ...prev, restSec: sec } : null)}
                     className={`py-2 px-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                       editSetsModal.restSec === sec
-                        ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-xs'
+                        ? 'bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-[var(--accent-primary)] shadow-xs'
                         : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:border-[var(--accent-primary)]/50'
                     }`}
                   >

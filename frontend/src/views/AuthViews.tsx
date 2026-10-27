@@ -8,6 +8,7 @@ import React, { useId, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
+  ArrowLeft,
   ArrowRight,
   Calculator,
   Check,
@@ -98,11 +99,11 @@ const FEATURES = [
 
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen w-full flex bg-[var(--bg-app)] text-[var(--text-primary)]">
+    <div className="h-full overflow-y-auto w-full flex bg-[var(--bg-app)] text-[var(--text-primary)]">
       {/* Brand panel */}
-      <aside className="hidden lg:flex lg:w-[46%] xl:w-[42%] relative overflow-hidden flex-col justify-between p-10 xl:p-14 bg-gradient-to-br from-violet-700 via-violet-600 to-indigo-700 text-white">
+      <aside className="hidden lg:flex lg:w-[46%] xl:w-[42%] relative overflow-hidden flex-col justify-between p-10 xl:p-14 auth-brand-panel">
         <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-white/10 blur-2xl" aria-hidden />
-        <div className="absolute -bottom-32 -left-16 w-96 h-96 rounded-full bg-indigo-400/20 blur-3xl" aria-hidden />
+        <div className="absolute -bottom-32 -left-16 w-96 h-96 rounded-full bg-emerald-400/10 blur-3xl" aria-hidden />
 
         <div className="relative flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center">
@@ -139,15 +140,19 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle: st
       </aside>
 
       {/* Form panel */}
-      <main className="flex-1 flex items-center justify-center px-4 py-10 sm:px-8">
+      <main className="flex-1 flex min-h-max items-center justify-center px-4 py-10 sm:px-8">
         <div className="w-full max-w-[420px]">
           <div className="lg:hidden flex items-center gap-2.5 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-[var(--accent-primary)] text-white flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[var(--accent-primary)] text-[var(--text-on-accent)] flex items-center justify-center">
               <Dumbbell className="w-5 h-5" />
             </div>
             <span className="text-lg font-bold tracking-tight">FitBot</span>
           </div>
 
+          <Link to="/" className="inline-flex items-center gap-2 mb-6 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            Back to home
+          </Link>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{title}</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1.5 mb-7">{subtitle}</p>
           {children}
@@ -165,7 +170,7 @@ export function LoginView() {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from || '/';
+  const from = (location.state as { from?: string } | null)?.from || '/dashboard';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -262,7 +267,7 @@ export function RegisterView() {
   const passwordOk = checks.every((c) => c.ok) && new TextEncoder().encode(password).length <= 72;
 
   // While submitting, onSubmit itself redirects new accounts to /profile (onboarding).
-  if (isAuthenticated && !isSubmitting) return <Navigate to="/" replace />;
+  if (isAuthenticated && !isSubmitting) return <Navigate to="/dashboard" replace />;
 
   const nameError = submitted && fullName.trim().length < 2 ? 'Enter your full name.' : undefined;
   const emailError = submitted && !EMAIL_RE.test(email.trim()) ? 'Enter a valid email address.' : undefined;
@@ -279,7 +284,7 @@ export function RegisterView() {
       await register(fullName, email, password);
       // New accounts start on the profile page to enter their biometrics. isSubmitting stays
       // true on purpose: router navigations are transitions, and resetting it here would let
-      // the "already logged in -> /" guard above render first and win.
+      // the already-authenticated guard above render first and win.
       navigate('/profile', { replace: true, state: { welcome: true } });
     } catch (err: any) {
       setFormError(err.message || 'Registration failed. Please try again.');

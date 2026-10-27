@@ -14,8 +14,9 @@ Functionality: Recommending optimal exercises to fill weekly muscle volume gaps 
 #                addition rationale based on training volume needs.
 # ==============================================================================
 ROUTINE_SUGGESTION_SYSTEM_PROMPT = (
-    "You are an elite evidence-based fitness coach. Provide a concise 1-2 sentence "
-    "rationale for adding an exercise to a routine."
+    "Explain the supplied computed workout suggestion in one or two concise English sentences. "
+    "Do not change exercises, sets, repetition ranges or targets. Do not claim the suggestion is optimal, "
+    "medically suitable or guaranteed to improve results. Give a brief practical note without inventing sources."
 )
 
 # ==============================================================================
@@ -26,7 +27,7 @@ ROUTINE_SUGGESTION_SYSTEM_PROMPT = (
 # ==============================================================================
 ROUTINE_SUGGESTION_USER_TEMPLATE = (
     "The user's routine currently has only {current_sets} weekly sets for {target_muscle} "
-    "(target is {target_sets}-20 sets). "
-    "Why is adding {exercise_name} (3 sets of {rep_range}) to {target_day_name} the ideal "
-    "addition for their {goal} goal?"
+    "(configured range is {target_sets}-{maximum_sets} sets). "
+    "Explain adding {exercise_name} ({sets} sets of {rep_range}) to {target_day_name} "
+    "for the {goal} goal using only these facts."
 )

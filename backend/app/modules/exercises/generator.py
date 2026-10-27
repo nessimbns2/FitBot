@@ -6,7 +6,6 @@ No database, no FastAPI, no LLM.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
@@ -19,6 +18,7 @@ from app.modules.exercises.catalog import (
     get_catalog,
 )
 from app.modules.user.models import ExperienceLevel, Goal
+from app.modules.exercises.training_rules import eligible, fits_day, volume_target
 
 
 # ── Editable Constants ────────────────────────────────────────────────────────
@@ -37,14 +37,6 @@ REST_SECONDS = {
     Goal.athletic_performance: {"compound": 120, "isolation": 60},
 }
 
-TARGET_WEEKLY_SETS_PER_MUSCLE = {
-    # (min_sets, max_sets)
-    ExperienceLevel.beginner: (6, 12),
-    Goal.hypertrophy: (10, 20),
-    Goal.strength: (8, 15),
-    Goal.fat_loss: (8, 14),
-    Goal.athletic_performance: (8, 15),
-}
 
 
 class SplitType(str, Enum):
@@ -74,13 +66,14 @@ class RoutineResult(BaseModel):
     days_per_week: int
     days: List[RoutineDay]
     weekly_sets_per_muscle: Dict[str, int]
+    volume_target: Dict[str, int] = Field(default_factory=dict)
+    available_equipment: List[Equipment] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
 
 
 def _get_target_volume_range(level: ExperienceLevel, goal: Goal) -> tuple[int, int]:
-    if level == ExperienceLevel.beginner:
-        return TARGET_WEEKLY_SETS_PER_MUSCLE[ExperienceLevel.beginner]
-    return TARGET_WEEKLY_SETS_PER_MUSCLE.get(goal, (10, 20))
+    target = volume_target(level, goal)
+    return target["minimum"], target["maximum"]
 
 
 def _filter_available_exercises(available_equipment: List[Equipment]) -> List[Exercise]:
@@ -102,17 +95,21 @@ def generate_routine(
     """Generate a deterministic training routine based on split, frequency, and available equipment."""
     if not (2 <= days_per_week <= 6):
         raise ValueError(f"days_per_week must be between 2 and 6, got {days_per_week}")
+    if split == SplitType.PUSH_PULL_LEGS and days_per_week < 3:
+        raise ValueError("Push/Pull/Legs needs at least three days to include legs. Choose Full Body or Upper/Lower for two days.")
 
     warnings: List[str] = []
-    available_exercises = _filter_available_exercises(available_equipment)
+    available_exercises = [ex for ex in _filter_available_exercises(available_equipment) if eligible(ex, available_equipment, experience_level)]
 
     if not available_exercises:
-        warnings.append("No exercises found matching available equipment.")
+        warnings.append("No exercises match both the available equipment and experience level.")
         return RoutineResult(
             split=split,
             days_per_week=days_per_week,
             days=[],
             weekly_sets_per_muscle={},
+            volume_target=volume_target(experience_level, goal),
+            available_equipment=available_equipment,
             warnings=warnings,
         )
 
@@ -122,20 +119,14 @@ def generate_routine(
     # Full Body: all
     days: List[RoutineDay] = []
 
-    def get_ex(muscle: MuscleGroup, compound: bool, used_ids: set[str]) -> Optional[Exercise]:
-        for ex in available_exercises:
+    def get_ex(muscle: MuscleGroup, compound: bool, used_ids: set[str], day_name: str) -> Optional[Exercise]:
+        candidates = [ex for ex in available_exercises if ex.id not in used_ids and fits_day(ex, day_name)]
+        for ex in candidates:
             if ex.id not in used_ids and ex.primary_muscle == muscle and ex.is_compound == compound:
                 return ex
         # fallback to any equipment-valid exercise for this muscle
-        for ex in available_exercises:
+        for ex in candidates:
             if ex.id not in used_ids and ex.primary_muscle == muscle:
-                return ex
-        # fallback allowing reuse
-        for ex in available_exercises:
-            if ex.primary_muscle == muscle and ex.is_compound == compound:
-                return ex
-        for ex in available_exercises:
-            if ex.primary_muscle == muscle:
                 return ex
         return None
 
@@ -146,6 +137,8 @@ def generate_routine(
     sets_per_exercise = 3
 
     if split == SplitType.PUSH_PULL_LEGS:
+        if days_per_week in (4, 5):
+            warnings.append("A four/five-day PPL week has unequal Push/Pull/Legs frequency. Review the distribution or choose Upper/Lower.")
         # Templates: Push, Pull, Legs (repeated or scheduled for days_per_week)
         day_templates = [
             ("Push A", "Chest, Shoulders & Triceps", [(MuscleGroup.CHEST, True), (MuscleGroup.DELTS, True), (MuscleGroup.CHEST, False), (MuscleGroup.DELTS, False), (MuscleGroup.ARMS, False)]),
@@ -186,8 +179,9 @@ def generate_routine(
         used_ids_in_day: set[str] = set()
 
         for muscle, is_comp in slot_specs:
-            ex = get_ex(muscle, is_comp, used_ids_in_day)
+            ex = get_ex(muscle, is_comp, used_ids_in_day, day_name)
             if not ex:
+                warnings.append(f"{day_name}: no unused {muscle.value} exercise matches this session, equipment and level; this slot was omitted.")
                 continue
 
             used_ids_in_day.add(ex.id)
@@ -227,5 +221,7 @@ def generate_routine(
         days_per_week=days_per_week,
         days=days,
         weekly_sets_per_muscle=weekly_sets,
+        volume_target=volume_target(experience_level, goal),
+        available_equipment=available_equipment,
         warnings=warnings,
     )

@@ -207,7 +207,10 @@ def test_saved_routine_roundtrip(client):
     routine = {"split": "push_pull_legs", "days": [{"name": "Push", "exercises": []}]}
     res = client.put("/api/exercises/routine", json={"split": "push_pull_legs", "days_per_week": 3, "routine": routine})
     assert res.status_code == 200
-    assert client.get("/api/exercises/routine").json()["routine"] == routine
+    loaded = client.get("/api/exercises/routine").json()["routine"]
+    assert loaded["days"] == routine["days"]
+    assert loaded["volume_target"] == {"minimum": 6, "maximum": 12}
+    assert loaded["weekly_sets_per_muscle"]["chest"] == 0
     assert client.put("/api/exercises/routine", json={"split": "x", "days_per_week": 3, "routine": {}}).status_code == 422
     assert client.delete("/api/exercises/routine").status_code == 204
     assert client.get("/api/exercises/routine").json() is None

@@ -3,13 +3,14 @@
 /* ─── FitBot Theme System (Light & Dark) ──────────────────────────────────── */
 
 :root {
-  /* Brand / Action Accent: Electric Violet (Distinct from Protein Blue) */
-  --accent-primary: #7c3aed;
-  --accent-primary-hover: #6d28d9;
-  --accent-primary-subtle: #f5f3ff;
-  --accent-primary-border: #ddd6fe;
+  color-scheme: light;
+  /* Brand / Action Accent: Mint (light theme) */
+  --accent-primary: #146b50;
+  --accent-primary-hover: #0d553f;
+  --accent-primary-subtle: #e9f8f0;
+  --accent-primary-border: #a5d8c1;
   --accent-foreground: #ffffff;
-  --accent-text: #6d28d9; /* AA-safe on white (contrast 6.8:1) */
+  --accent-text: #146b50;
 
   /* Fixed Macronutrient Tokens (Identical across cards, charts, and badges) */
   --macro-protein: #2563eb;
@@ -31,20 +32,20 @@
   --status-success: #059669;
   --status-warning: #d97706;
   --status-danger: #dc2626;
-  --status-info: #7c3aed;
+  --status-info: #146b50;
 
   /* Light Theme Surfaces & Text */
-  --bg-app: #f8fafc;
+  --bg-app: #f4f9f6;
   --bg-sidebar: #ffffff;
   --bg-card: #ffffff;
-  --bg-card-hover: #f8fafc;
-  --bg-card-active: #f1f5f9;
-  --bg-subtle: #f1f5f9;
+  --bg-card-hover: #f0f8f4;
+  --bg-card-active: #e4f2ea;
+  --bg-subtle: #edf5f0;
   --bg-overlay: rgba(15, 23, 42, 0.45);
 
-  --border-subtle: #e2e8f0;
-  --border-prominent: #cbd5e1;
-  --border-focused: #7c3aed;
+  --border-subtle: #dce8e1;
+  --border-prominent: #bdcfc4;
+  --border-focused: #146b50;
 
   --text-primary: #0f172a;
   --text-secondary: #334155;
@@ -63,19 +64,20 @@
   --radius-xl: 20px;
   --radius-full: 9999px;
 
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --transition-fast: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
   --transition-smooth: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark {
-  /* Brand / Action Accent: Electric Violet (Dark Theme) */
-  --accent-primary: #8b5cf6;
-  --accent-primary-hover: #7c3aed;
-  --accent-primary-subtle: rgba(139, 92, 246, 0.15);
-  --accent-primary-border: rgba(139, 92, 246, 0.35);
-  --accent-foreground: #ffffff;
-  --accent-text: #a78bfa; /* Violet 400 (Contrast 8.5:1) */
+  color-scheme: dark;
+  /* Brand / Action Accent: Homepage mint (dark theme) */
+  --accent-primary: #9af1ce;
+  --accent-primary-hover: #b9f8de;
+  --accent-primary-subtle: rgba(154, 241, 206, 0.10);
+  --accent-primary-border: rgba(154, 241, 206, 0.30);
+  --accent-foreground: #10271e;
+  --accent-text: #9af1ce;
 
   /* Fixed Macronutrient Tokens (Dark Athletic Theme) */
   --macro-protein: #3b82f6;
@@ -97,25 +99,25 @@
   --status-success: #10b981;
   --status-warning: #f59e0b;
   --status-danger: #ef4444;
-  --status-info: #8b5cf6;
+  --status-info: #9af1ce;
 
   /* Dark Theme Surfaces & Text */
-  --bg-app: #08090d;
-  --bg-sidebar: #0e1118;
-  --bg-card: #131722;
-  --bg-card-hover: #191f2e;
-  --bg-card-active: #1f273a;
-  --bg-subtle: #0e1118;
+  --bg-app: #0d131d;
+  --bg-sidebar: #101a21;
+  --bg-card: #142129;
+  --bg-card-hover: #1a2b32;
+  --bg-card-active: #213b3b;
+  --bg-subtle: #101a21;
   --bg-overlay: rgba(0, 0, 0, 0.7);
 
-  --border-subtle: #1e2538;
-  --border-prominent: #2a344e;
-  --border-focused: #8b5cf6;
+  --border-subtle: #293b3c;
+  --border-prominent: #3f5853;
+  --border-focused: #9af1ce;
 
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --text-on-accent: #ffffff;
+  --text-primary: #eff4fc;
+  --text-secondary: #b8c9d4;
+  --text-muted: #a5b5c8;
+  --text-on-accent: #10271e;
 
   /* Shadows (Dark Theme) */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
@@ -177,3 +179,6 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Shared brand panel matches the public homepage in either app theme. */
+.auth-brand-panel { background: radial-gradient(ellipse at 80% 20%, #12392f, transparent 70%), #0d131d; color: #eff4fc; }

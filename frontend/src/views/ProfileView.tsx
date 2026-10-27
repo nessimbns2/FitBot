@@ -450,7 +450,7 @@ export function ProfileView() {
                         <div
                           className={`w-9 h-9 rounded-xl flex items-center justify-center ${
                             isSelected
-                              ? 'bg-[var(--accent-primary)] text-white'
+                              ? 'bg-[var(--accent-primary)] text-[var(--text-on-accent)]'
                               : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
                           }`}
                         >

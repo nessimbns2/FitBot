@@ -91,6 +91,11 @@ cp .env.example .env
 ```
 Backend API will be accessible at: `http://localhost:8000` (Docs at `http://localhost:8000/docs`).
 
+On Windows, a second server on port 8000 can produce `WinError 10013`.
+If `http://127.0.0.1:8000/api/health/ready` responds, the backend is already running.
+Use the existing server, or stop it with Ctrl+C in its terminal before restarting.
+From the project root, `.\start.ps1` detects and reuses already-running FitBot services.
+
 ### 4. Frontend Setup
 ```bash
 cd frontend

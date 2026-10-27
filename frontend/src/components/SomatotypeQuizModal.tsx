@@ -306,7 +306,7 @@ export function SomatotypeQuizModal({
             {/* Training & Nutrition Split */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] space-y-1.5">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--brand-purple)]">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--accent-text)]">
                   <Dumbbell className="w-4 h-4" />
                   <span>Optimal Training Strategy</span>
                 </div>
@@ -400,7 +400,7 @@ export function SomatotypeQuizModal({
                     <div
                       className={`w-4 h-4 rounded-full mt-0.5 border flex items-center justify-center shrink-0 ${
                         isSelected
-                          ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white'
+                          ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]'
                           : 'border-[var(--border-prominent)]'
                       }`}
                     >

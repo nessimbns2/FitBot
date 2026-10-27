@@ -255,10 +255,10 @@ def test_api_ai_suggest_exercise_all_good(client):
                         {"exercise_id": "barbell-bench-press", "primary_muscle": "chest", "sets": 10},
                         {"exercise_id": "barbell-bent-over-row", "primary_muscle": "back", "sets": 10},
                         {"exercise_id": "barbell-back-squat", "primary_muscle": "quads", "sets": 10},
-                        {"exercise_id": "romanian-deadlift", "primary_muscle": "hamstrings", "sets": 10},
-                        {"exercise_id": "overhead-press", "primary_muscle": "delts", "sets": 10},
-                        {"exercise_id": "barbell-curl", "primary_muscle": "arms", "sets": 10},
-                        {"exercise_id": "hanging-leg-raise", "primary_muscle": "core", "sets": 8},
+                        {"exercise_id": "barbell-romanian-deadlift", "primary_muscle": "hamstrings", "sets": 10},
+                        {"exercise_id": "overhead-barbell-press", "primary_muscle": "delts", "sets": 10},
+                        {"exercise_id": "barbell-bicep-curl", "primary_muscle": "arms", "sets": 10},
+                        {"exercise_id": "hanging-leg-raise", "primary_muscle": "core", "sets": 10},
                     ],
                 }
             ]

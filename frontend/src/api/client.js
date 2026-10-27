@@ -323,18 +323,35 @@ export async function getBodyTypeGuidance() {
   return request('/api/exercises/body-type-guidance');
 }
 
-export async function getAISuggestExercise(routineData, goal = 'hypertrophy', experienceLevel = 'intermediate') {
+export async function getAISuggestExercise(routineData, goal = null, experienceLevel = null, availableEquipment = null) {
   return request('/api/exercises/ai-suggest-exercise', {
     method: 'POST',
     body: JSON.stringify({
       routine: routineData,
       goal,
       experience_level: experienceLevel,
+      available_equipment: availableEquipment,
     }),
   });
 }
 
 // ── Progressive Overload ──────────────────────────────────────────────────────
+
+export function getExerciseAlternatives(data, signal) {
+  return request('/api/exercises/alternatives', { method: 'POST', body: JSON.stringify(data), signal });
+}
+
+export function recordExerciseFeedback(id, action) {
+  return request(`/api/exercises/recommendations/${id}/feedback`, { method: 'PUT', body: JSON.stringify({ action }) });
+}
+
+export function getPreferenceStatus() { return request('/api/exercises/preferences/status'); }
+export function trainExercisePreferences() { return request('/api/exercises/preferences/train', { method: 'POST' }); }
+export function resetExercisePreferences() { return request('/api/exercises/preferences', { method: 'DELETE' }); }
+
+export function explainWorkoutRoutine(routine, signal) {
+  return request('/api/exercises/routine/explanation', { method: 'POST', body: JSON.stringify({ routine }), signal });
+}
 
 export async function logWorkoutSet(setData) {
   return request('/api/overload/log-set', {

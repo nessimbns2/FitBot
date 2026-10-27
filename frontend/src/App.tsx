@@ -1,8 +1,8 @@
 /**
  * src/App.tsx
  * Top-level application shell: ThemeProvider, AuthProvider, Router.
- * Public routes: /login, /register. Everything else requires an authenticated account
- * and is rendered inside the app shell with the user's ProfileProvider.
+ * Public routes: /, /login, /register. App routes require an authenticated account
+ * and render inside the app shell with the user's ProfileProvider.
  */
 
 import React from 'react';
@@ -12,6 +12,7 @@ import { ThemeProvider } from './design';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProfileProvider } from './context/ProfileContext';
 import { Sidebar, MobileTabBar, MobileTopBar } from './components/Navigation';
+import { LandingView } from './views/LandingView';
 import { TodayView } from './views/TodayView';
 import { ChatView } from './views/ChatView';
 import { NutritionView } from './views/NutritionView';
@@ -68,13 +69,14 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            <Route path="/" element={<LandingView />} />
             <Route path="/login" element={<LoginView />} />
             <Route path="/register" element={<RegisterView />} />
 
             <Route element={<RequireAuth />}>
               <Route element={<AppShell />}>
-                {/* Home route '/' = "Today" dashboard */}
-                <Route path="/" element={<TodayView />} />
+                {/* The public landing lives at /; Today has its own protected route. */}
+                <Route path="/dashboard" element={<TodayView />} />
                 <Route path="/coach" element={<ChatView />} />
                 <Route path="/nutrition" element={<NutritionView />} />
                 <Route path="/workouts" element={<WorkoutsView />} />

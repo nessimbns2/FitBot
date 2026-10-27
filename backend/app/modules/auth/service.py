@@ -102,7 +102,7 @@ def change_password(session: Session, user: User, data: ChangePasswordRequest) -
 
 def delete_account(session: Session, user: User, password: str) -> None:
     """Permanently delete the account and every row of personal data it owns."""
-    from app.modules.exercises.models import SavedRoutine
+    from app.modules.exercises.models import ExercisePreferenceModel, ExerciseRecommendation, SavedRoutine
     from app.modules.nutrition.models import FoodLogEntry, MealLog
     from app.modules.progressive_overload.models import DeloadRecord, WorkoutSet
     from app.modules.user.models import ChatMessage, ChatSession, UserProfile
@@ -119,6 +119,8 @@ def delete_account(session: Session, user: User, password: str) -> None:
     session.exec(delete(DeloadRecord).where(DeloadRecord.user_id == user.id))
     session.exec(delete(WorkoutSet).where(WorkoutSet.user_id == user.id))  # type: ignore[arg-type]
     session.exec(delete(MealLog).where(MealLog.user_id == user.id))  # type: ignore[arg-type]
+    session.exec(delete(ExercisePreferenceModel).where(ExercisePreferenceModel.user_id == user.id))
+    session.exec(delete(ExerciseRecommendation).where(ExerciseRecommendation.user_id == user.id))
     session.exec(delete(SavedRoutine).where(SavedRoutine.user_id == user.id))  # type: ignore[arg-type]
     session.exec(delete(UserProfile).where(UserProfile.user_id == user.id))  # type: ignore[arg-type]
     session.delete(user)
