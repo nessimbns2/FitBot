@@ -1,0 +1,477 @@
+{
+  "method": "AST only; no runtime import or secret access; f-string expressions kept as placeholders",
+  "records": [
+    {
+      "id": "C01",
+      "title": "Persona commune du coach",
+      "source": "backend/app/prompts/coach.py",
+      "line": 17,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "4b6952a91352806cd2502656e404f19fb629f1283380c25dbc815e71f1e182a7",
+      "file": "C01.txt"
+    },
+    {
+      "id": "C02",
+      "title": "Note éducative commune",
+      "source": "backend/app/prompts/coach.py",
+      "line": 31,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "5acaa727a841ddd7653be269208a44caf0b5d46888bac735bfbc87435e5248ae",
+      "file": "C02.txt"
+    },
+    {
+      "id": "C03",
+      "title": "Coach : nutrition",
+      "source": "backend/app/prompts/coach.py",
+      "line": 43,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "755e9db67de70eee10e1592b2fe7391e6eb3c46f9648983ecab668235c39e7fe",
+      "file": "C03.txt"
+    },
+    {
+      "id": "C04",
+      "title": "Coach : technique des exercices",
+      "source": "backend/app/prompts/coach.py",
+      "line": 69,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "8db590b4299c39b1982d134c557187712abf9a415d34e96e50de287675ccd007",
+      "file": "C04.txt"
+    },
+    {
+      "id": "C05",
+      "title": "Coach : progression et surcharge",
+      "source": "backend/app/prompts/coach.py",
+      "line": 93,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "317a8556849b6f63c7bd504efcdacee85d8aec8ea36d2b714385d31214d77f9a",
+      "file": "C05.txt"
+    },
+    {
+      "id": "C06",
+      "title": "Coach : confirmation de séance",
+      "source": "backend/app/prompts/coach.py",
+      "line": 119,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "19b5225bc89295eb9dbb75a934037ddec5c94f0b8fb0221336d3ccf4971335b6",
+      "file": "C06.txt"
+    },
+    {
+      "id": "C07",
+      "title": "Coach : questions générales",
+      "source": "backend/app/prompts/coach.py",
+      "line": 137,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "01e558355ca242796ffab146f8b027eeb47ba84a4abd0b4d1270219aa0da3aa7",
+      "file": "C07.txt"
+    },
+    {
+      "id": "C08",
+      "title": "Classification de l'intention en dernier recours",
+      "source": "backend/app/modules/rag_core/router_agent.py",
+      "line": 157,
+      "kind": "gabarit dynamique",
+      "note": "Le message utilisateur constitue l'autre entrée. Les règles locales sont essayées avant cet appel.",
+      "sha256": "b071480f89982e734f473272ca44afe124639fbba8fbd39daf89ee6c4a8ea39a",
+      "file": "C08.txt"
+    },
+    {
+      "id": "N01",
+      "title": "Timing des repas",
+      "source": "backend/app/modules/nutrition/router.py",
+      "line": 194,
+      "kind": "gabarit",
+      "note": "Le marqueur de jointure représente les passages récupérés pour ce thème ; k = 2. Aucun gabarit du coach n'est ajouté à ces trois appels.",
+      "sha256": "27d278f2aad49f190ccf7dce4a1ada0dbffd8a47097b1b8b0a9a3e3097cabbb5",
+      "file": "N01.txt"
+    },
+    {
+      "id": "N02",
+      "title": "Hydratation",
+      "source": "backend/app/modules/nutrition/router.py",
+      "line": 204,
+      "kind": "gabarit",
+      "note": "Le marqueur de jointure représente les passages récupérés pour ce thème ; k = 2. Aucun gabarit du coach n'est ajouté à ces trois appels.",
+      "sha256": "fa0e090666c1997577ff0335d3fddd83ee9ff7d24f56a370a3f52a6601282d4c",
+      "file": "N02.txt"
+    },
+    {
+      "id": "N03",
+      "title": "Compléments alimentaires",
+      "source": "backend/app/modules/nutrition/router.py",
+      "line": 214,
+      "kind": "gabarit",
+      "note": "Le marqueur de jointure représente les passages récupérés pour ce thème ; k = 2. Aucun gabarit du coach n'est ajouté à ces trois appels.",
+      "sha256": "13bf24af65d83a6abb83163beea72e58fd4b3f26f9de897cd910986dc22d0a44",
+      "file": "N03.txt"
+    },
+    {
+      "id": "N04",
+      "title": "Idées de repas : instructions système",
+      "source": "backend/app/modules/nutrition/suggestion_service.py",
+      "line": 44,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "08171b92df40fcce673d56051cd1c18eb86ee81699f7e3d4a41cc2969044a11c",
+      "file": "N04.txt"
+    },
+    {
+      "id": "N05",
+      "title": "Idées de repas : construction du message utilisateur",
+      "source": "backend/app/modules/nutrition/suggestion_service.py",
+      "line": 140,
+      "kind": "code d'assemblage exact",
+      "note": "Les nombres viennent du solde calculé ; le texte résultant est ensuite passé à redact_pii avant l'appel.",
+      "sha256": "df4bc4aae85806a1b0efc1926e8348b88791eadb4ca762b68702829e600afc88",
+      "file": "N05.txt"
+    },
+    {
+      "id": "V01",
+      "title": "Scanner de repas : instruction multimodale intégrale",
+      "source": "backend/app/prompts/vision.py",
+      "line": 17,
+      "kind": "gabarit",
+      "note": "La photo accompagne ce texte. Les doubles accolades du gabarit deviennent des accolades simples après format().",
+      "sha256": "562e910340e3b271fc1b90633bbcaa3a25900a1dfb5d2262bb965762f4bdc7b4",
+      "file": "V01.txt"
+    },
+    {
+      "id": "V02",
+      "title": "Scanner : contexte facultatif de créneau",
+      "source": "backend/app/modules/nutrition/router.py",
+      "line": 375,
+      "kind": "gabarit dynamique",
+      "note": "Expression conditionnelle exacte : chaîne vide si le créneau est absent.",
+      "sha256": "856b76b532574eeab936f647d0be8e35090323a61cd7ebd22aa97c3175255c8c",
+      "file": "V02.txt"
+    },
+    {
+      "id": "E01",
+      "title": "Technique : instructions et contexte",
+      "source": "backend/app/modules/exercises/router.py",
+      "line": 211,
+      "kind": "gabarit dynamique",
+      "note": "",
+      "sha256": "4f88db59c2468fb93cb7d08e16012855a18b81ea92369aa9f682c77e33a2f744",
+      "file": "E01.txt"
+    },
+    {
+      "id": "E02",
+      "title": "Technique : question utilisateur ou question par défaut",
+      "source": "backend/app/modules/exercises/router.py",
+      "line": 215,
+      "kind": "gabarit dynamique",
+      "note": "L'expression conserve le choix entre la question pseudonymisée et la question standard.",
+      "sha256": "4005bad5117ce0b14f460dd5b50e324f74807d0f77ea44d2435d00053a40b74d",
+      "file": "E02.txt"
+    },
+    {
+      "id": "E03",
+      "title": "Conseils par morphotype : contexte système",
+      "source": "backend/app/modules/exercises/router.py",
+      "line": 266,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "ea5ff0e2c9d7d71806a02888c65f37d8a0eb220d11e35ffb967c78df33b3ceb5",
+      "file": "E03.txt"
+    },
+    {
+      "id": "E04",
+      "title": "Conseils par morphotype : demande d'entraînement",
+      "source": "backend/app/prompts/guidance.py",
+      "line": 19,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "4faba7cfd8daa8b6162a72495d232ee85c106da4d1f5ca0a855db5c9c452fe12",
+      "file": "E04.txt"
+    },
+    {
+      "id": "E05",
+      "title": "Gabarit nutrition par morphotype non appelé",
+      "source": "backend/app/prompts/guidance.py",
+      "line": 21,
+      "kind": "gabarit",
+      "note": "Défini et exporté dans le code, mais sans appel fonctionnel trouvé dans les routes actuelles. Ce n'est pas une fonctionnalité supplémentaire démontrée.",
+      "sha256": "bf1ef3847752a5f98f72f2d708a110c9b7fde4e7eb8db5970d0fdd97e5ea01ce",
+      "file": "E05.txt"
+    },
+    {
+      "id": "P01",
+      "title": "Questionnaire de morphotype : système",
+      "source": "backend/app/prompts/guidance.py",
+      "line": 32,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "627621a191e6ff5fc3433784fd2124fa560fc12a1bcdae880b0a1bc9388fc361",
+      "file": "P01.txt"
+    },
+    {
+      "id": "P02",
+      "title": "Questionnaire de morphotype : réponses",
+      "source": "backend/app/prompts/guidance.py",
+      "line": 52,
+      "kind": "gabarit",
+      "note": "Les formulations médicales du prompt sont reproduites à des fins d'audit ; elles ne prouvent pas la validité scientifique du questionnaire.",
+      "sha256": "697f925cb6eccb27da9f6f1b1182ed7f5d4679e24ea69149a8aba456adc466fa",
+      "file": "P02.txt"
+    },
+    {
+      "id": "P03",
+      "title": "Questionnaire : banque de questions et choix",
+      "source": "backend/app/prompts/guidance.py",
+      "line": 69,
+      "kind": "donnée de formulaire",
+      "note": "Donnée d'entrée du formulaire, et non instruction système supplémentaire. Le message P02 reçoit les libellés des réponses validées.",
+      "sha256": "8bb93a576a9264ff246dd0d0cd50b48fa68c841270f49c5f94586d3eceb0b1f3",
+      "file": "P03.txt"
+    },
+    {
+      "id": "B01",
+      "title": "Athlete Blueprint : système et schéma",
+      "source": "backend/app/prompts/guidance.py",
+      "line": 206,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "11c54552076702c1139006051f3f60e55a6dfb661be887cddfa2d59b7a4bbc61",
+      "file": "B01.txt"
+    },
+    {
+      "id": "B02",
+      "title": "Athlete Blueprint : profil, cibles et passages",
+      "source": "backend/app/prompts/guidance.py",
+      "line": 251,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "a5b6e563d0df045a6fd5d20bd79481c687613b5cadf67f474071e209c399e3be",
+      "file": "B02.txt"
+    },
+    {
+      "id": "R01",
+      "title": "Assistant routine : justification système",
+      "source": "backend/app/prompts/routine.py",
+      "line": 16,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "3e2cb5c486c31426ccc8f5e1eada2c662a0397d23359221a2e4e4874c188f231",
+      "file": "R01.txt"
+    },
+    {
+      "id": "R02",
+      "title": "Assistant routine : contexte de volume",
+      "source": "backend/app/prompts/routine.py",
+      "line": 28,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "7770c4e1a2f803f9ed86b0d3bcb39be42b7bb8ce5e2372db6eda351f6ba7b511",
+      "file": "R02.txt"
+    },
+    {
+      "id": "R03",
+      "title": "Workout Planner : explication documentaire structurée",
+      "source": "backend/app/prompts/planner_explanation.py",
+      "line": 3,
+      "kind": "gabarit",
+      "note": "",
+      "sha256": "47cc36179128c421608bbb0ed9d57d5b2c265a1fe00c22d368ec90ecd83057ff",
+      "file": "R03.txt"
+    },
+    {
+      "id": "R04",
+      "title": "Workout Planner : faits, recherche et validation des références",
+      "source": "backend/app/modules/exercises/planner_explanation.py",
+      "line": 22,
+      "kind": "code d'assemblage exact",
+      "note": "Les données du programme sont reconstruites depuis le catalogue. Huit passages sont recherchés ; au plus quatre pages distinctes sont conservées. Le contrat JSON et les identifiants de citation sont vérifiés, sans preuve automatique de validité sémantique.",
+      "sha256": "e673ac41c5e7f43142ab7c872863c444be10bc61f269135c83254a37b753977c",
+      "file": "R04.txt"
+    },
+    {
+      "id": "D01",
+      "title": "Plateau : exemple abstrait de format",
+      "source": "backend/app/modules/progressive_overload/service.py",
+      "line": 393,
+      "kind": "gabarit",
+      "note": "Exemple de structure dans un autre domaine, sans valeur de preuve ; les règles interdisent d'en recopier les phrases.",
+      "sha256": "ac83b5e951c9d11b3ee7fe1310ce55fd084081167085a6dba4295858a162704a",
+      "file": "D01.txt"
+    },
+    {
+      "id": "D02",
+      "title": "Plateau : contexte avec sources",
+      "source": "backend/app/modules/progressive_overload/service.py",
+      "line": 454,
+      "kind": "gabarit dynamique",
+      "note": "",
+      "sha256": "31b1647809b0205f099af2c682a7dabfaeb30504915013ed5a6822108e827bd4",
+      "file": "D02.txt"
+    },
+    {
+      "id": "D03",
+      "title": "Plateau : contexte sans source",
+      "source": "backend/app/modules/progressive_overload/service.py",
+      "line": 464,
+      "kind": "gabarit dynamique",
+      "note": "",
+      "sha256": "cb84bc3381de765819426a787e90031a20cc22cdecc7fac58e340e923ab2785a",
+      "file": "D03.txt"
+    },
+    {
+      "id": "D04",
+      "title": "Plateau ambigu : instructions système",
+      "source": "backend/app/modules/progressive_overload/service.py",
+      "line": 481,
+      "kind": "gabarit dynamique",
+      "note": "Les références research_instruction et _ABSTRACT_FORMAT_ILLUSTRATION sont remplacées par D02 ou D03, puis D01. Les autres champs proviennent des signaux et stratégies calculés par Python.",
+      "sha256": "3b56b9df3ce09dc06647d2006f99387c58a47e90844beda4e101d9fc2986eb9e",
+      "file": "D04.txt"
+    },
+    {
+      "id": "D05",
+      "title": "Plateau ambigu : message utilisateur",
+      "source": "backend/app/modules/progressive_overload/service.py",
+      "line": 507,
+      "kind": "gabarit dynamique",
+      "note": "",
+      "sha256": "f3f9fd292980b44938355df97dab453522163fe8b8e1eb4d0924a82d416dc235",
+      "file": "D05.txt"
+    },
+    {
+      "id": "D06",
+      "title": "Plateau standard : instructions système",
+      "source": "backend/app/modules/progressive_overload/service.py",
+      "line": 522,
+      "kind": "gabarit dynamique",
+      "note": "Les références research_instruction et _ABSTRACT_FORMAT_ILLUSTRATION sont remplacées par D02 ou D03, puis D01. Les autres champs proviennent des signaux et stratégies calculés par Python.",
+      "sha256": "8708382f4ce434e27432a6e20d25ad6275315e0f7e3737ba7e7c1ebd0ccc61a4",
+      "file": "D06.txt"
+    },
+    {
+      "id": "D07",
+      "title": "Plateau standard : message utilisateur",
+      "source": "backend/app/modules/progressive_overload/service.py",
+      "line": 547,
+      "kind": "gabarit dynamique",
+      "note": "",
+      "sha256": "f0971585c414e736f76181f60029b53fce3ed9f41912216d4b21b64ff698d9cf",
+      "file": "D07.txt"
+    },
+    {
+      "id": "T01",
+      "title": "Assemblage des gabarits du coach et de la mémoire",
+      "source": "backend/app/modules/rag_core/engine.py",
+      "line": 172,
+      "kind": "code d'assemblage exact",
+      "note": "",
+      "sha256": "9fe75dd06a92da5a88b86c6339848c09c8dbaf93d22aceba975b41ac26951d82",
+      "file": "T01.txt"
+    },
+    {
+      "id": "T02",
+      "title": "Sérialisation finale des rôles pour le fournisseur",
+      "source": "backend/app/modules/rag_core/engine.py",
+      "line": 319,
+      "kind": "code d'assemblage exact",
+      "note": "Les préfixes SYSTEM, USER et ASSISTANT sont du texte concaténé dans une seule entrée du SDK. Ils ne constituent pas une séparation de rôles native et inviolable.",
+      "sha256": "45dc0db30cc27065db077539174c48206a17f7f251eddef18f8b8b463fd69e46",
+      "file": "T02.txt"
+    }
+  ],
+  "provider_call_sites": [
+    {
+      "source": "backend/app/modules/exercises/planner_explanation.py",
+      "line": 70,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/exercises/router.py",
+      "line": 217,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/exercises/router.py",
+      "line": 264,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/exercises/router.py",
+      "line": 331,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/nutrition/router.py",
+      "line": 194,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/nutrition/router.py",
+      "line": 204,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/nutrition/router.py",
+      "line": 214,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/nutrition/router.py",
+      "line": 286,
+      "method": "stream"
+    },
+    {
+      "source": "backend/app/modules/nutrition/router.py",
+      "line": 317,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/nutrition/router.py",
+      "line": 467,
+      "method": "generate_content"
+    },
+    {
+      "source": "backend/app/modules/nutrition/suggestion_service.py",
+      "line": 207,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/progressive_overload/service.py",
+      "line": 565,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/rag_core/engine.py",
+      "line": 352,
+      "method": "generate_content"
+    },
+    {
+      "source": "backend/app/modules/rag_core/router.py",
+      "line": 194,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/rag_core/router.py",
+      "line": 235,
+      "method": "stream"
+    },
+    {
+      "source": "backend/app/modules/rag_core/router_agent.py",
+      "line": 161,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/user/service.py",
+      "line": 245,
+      "method": "complete"
+    },
+    {
+      "source": "backend/app/modules/user/service.py",
+      "line": 443,
+      "method": "complete"
+    }
+  ]
+}

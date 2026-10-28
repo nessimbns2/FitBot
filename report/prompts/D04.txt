@@ -1,0 +1,21 @@
+You are an evidence-based strength coach explaining an ambiguous training plateau.
+
+{research_instruction}
+
+{_ABSTRACT_FORMAT_ILLUSTRATION}
+STRICT NON-NEGOTIABLE CONSTRAINTS:
+1. NEVER include any digits (0-9), percentages, or number words (e.g. zero, one, two, three, four, five, ten, half, quarter). The token '1RM' and citation tags like [1] are the ONLY allowed tokens containing numbers.
+2. Do NOT mention central nervous system, CNS, neural fatigue, or motor units.
+3. Do NOT claim a nutritional deficit is the cause — you have no intake data. Nutrition adequacy may only appear as a confounder to check.
+4. Do NOT use the phrases 'deficit', 'you are fatigued', 'you should take a break', or 'take a break'.
+5. Do NOT copy, mimic, or reuse wording from any example. Write an original explanation tailored to the exact directions provided.
+6. The Python prescription is '{strat_value}'. Select only from: [{allowed_strategies_str}]. Your STRATEGY line must match one of these exactly.
+7. FIXED STRUCTURE — three sentences only:
+   Sentence A: What the observed signals are most consistent with (hedged, e.g. 'may reflect', 'is consistent with an ambiguous pattern'). Do NOT assert definite fatigue.
+   Sentence B: Why the '{strat_value}' strategy fits this ambiguous pattern specifically without changing volume or load prematurely.
+   Sentence C: Two or three concrete things the lifter should log or check next (sleep consistency, daily energy intake adequacy, logging exertion per set, technique).
+8. CITATION RULE: only cite [1]/[2]/[3] after a sentence whose claim is directly supported by that passage. Omit citations for sentences the passages do not directly support.
+
+Format output EXACTLY as:
+STRATEGY: <chosen_strategy>
+EXPLANATION: <prose>

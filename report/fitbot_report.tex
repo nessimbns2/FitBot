@@ -1,9 +1,14 @@
 \documentclass[11pt,a4paper]{article}
 
 % ── Configuration Typographique & Langue ───────────────────────────────────────
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \usepackage{lmodern}
+\else
+  \usepackage{fontspec}
+\fi
 \usepackage[french]{babel}
 \usepackage{microtype}
 
@@ -29,6 +34,7 @@
 \usepackage{titlesec}
 \usepackage{listings}
 \usepackage{tcolorbox}
+\usepackage{xurl}
 \usepackage[colorlinks=true,linkcolor=brandblue,citecolor=brandpurple,urlcolor=brandblue]{hyperref}
 
 % ── Palette Graphique Élégante ────────────────────────────────────────────────
@@ -77,7 +83,8 @@
     tabsize=2,
     frame=single,
     rulecolor=\color{bordergray},
-    numbers=none
+    numbers=none,
+    literate={—}{{---}}3
 }
 \lstset{style=promptstyle}
 
@@ -140,7 +147,7 @@
   \textbf{Équipe d'Ingénierie FitBot} \\
   \texttt{https://github.com/nessimbns2/FitBot}
 }
-\date{26 octobre 2026}
+\date{28 octobre 2026}
 
 % ──────────────────────────────────────────────────────────────────────────────
 \begin{document}
@@ -151,7 +158,7 @@ FitBot est une application web de coaching sportif et nutritionnel associant Rea
 Le rapport présente les fonctionnalités avec des captures réelles de l'application, décrit leurs entrées et sorties, puis explique comment améliorer la pertinence, la structure et la robustesse des réponses IA. Il distingue les \textbf{cibles calculées en Python} des \textbf{estimations alimentaires générées par le modèle}. Les résultats de tests et de recherche documentaire sont accompagnés de leur protocole ; aucun coût API ou taux de fiabilité non mesuré n'est présenté comme un résultat expérimental.
 \end{abstract}
 \begin{infobox}{Périmètre de cette version}
-État étudié : fusion \texttt{43a4795}, complétée par ce rapport. Vérifications locales du 26 octobre 2026 : \textbf{341 tests réussis, 2 ignorés}, compilation du frontend et contrôle TypeScript réussis. Les captures utilisent uniquement des données de démonstration et un compte temporaire supprimé à la fin de la session.
+Cette présentation couvre l'application complète et les extensions du Workout Planner : alternatives par similarité, explications documentaires citées et apprentissage des préférences. Le dernier contrôle logiciel consigné compte \textbf{400 tests réussis, 2 ignorés}, avec compilation du frontend et contrôle TypeScript réussis. Les captures initiales du 26 octobre utilisent des données de démonstration et un compte temporaire supprimé après la session ; elles illustrent les parcours, sans constituer des mesures de performance du modèle.
 \end{infobox}
 \clearpage
 \tableofcontents
@@ -174,7 +181,7 @@ Persistance & Repas et routine dans le navigateur & PostgreSQL et migrations Ale
 Conversation & Réponses documentaires & Historique, mémoire récente, SSE et sources dépliables \\
 Nutrition & Calculs et scanner & Journal éditable, bilan quotidien et suggestions IA \\
 Profil & Mensurations et somatotype & Questionnaire et bilan Athlete Blueprint \\
-Entraînement & Routine et progression & Analyse de volume, plateau et décharge \\
+Entraînement & Routine et progression & Volume, alternatives par similarité, explication RAG et préférences apprises \\
 Robustesse & Réponse générique en cas d'échec & Erreurs explicites, validation et repli documentaire \\
 \bottomrule
 \end{tabularx}
@@ -202,6 +209,7 @@ Alembic & Création et évolution du schéma avec migration des anciens repas \\
 Sentence Transformers & Encodage local des passages et questions avec \texttt{all-MiniLM-L6-v2} \\
 FAISS & Recherche dans deux index distincts : nutrition et exercice \\
 Gemini & Rédaction, synthèses structurées et analyse multimodale des repas \\
+scikit-learn & Régression logistique personnelle, évaluation séparée et classement des alternatives \\
 \bottomrule
 \end{tabularx}
 \caption{Technologies présentes dans la version étudiée.}
@@ -220,11 +228,11 @@ Gemini & Rédaction, synthèses structurées et analyse multimodale des repas \\
 \end{tcolorbox}
 
 \subsection{Modèle de données et isolation des comptes}
-Neuf tables applicatives structurent la persistance : \path{users}, \path{user_profile}, \path{chat_session}, \path{chat_message}, \path{workout_sets}, \path{meal_logs}, \path{saved_routines}, \path{food_log_entries} et \path{deload_records}. La table Alembic suit la version du schéma.
+Onze tables applicatives structurent la persistance : \path{users}, \path{user_profile}, \path{chat_session}, \path{chat_message}, \path{workout_sets}, \path{meal_logs}, \path{saved_routines}, \path{food_log_entries}, \path{deload_records}, \path{exercise_recommendations} et \path{exercise_preference_models}. Les deux dernières conservent les alternatives présentées, les retours et les paramètres du modèle personnel. La table Alembic suit la version du schéma.
 
 Les ressources personnelles sont rattachées au compte par \texttt{user\_id}. Les messages dépendent de leur conversation. Une requête de lecture ou de modification utilise l'identité issue du jeton ; un identifiant appartenant à un autre compte renvoie une absence de ressource. La suppression de compte couvre aussi le nouveau journal et les prescriptions de décharge.
 
-La migration \texttt{e3c2b8d5f0a1} ajoute le journal détaillé et les décharges. Elle copie les anciens repas vers le nouveau journal avec leur propriétaire et leur date, tout en conservant l'ancienne API pour compatibilité. Les données métier ne restent plus dans \texttt{localStorage} ; le navigateur y conserve encore le jeton et des préférences visuelles.
+Les migrations ajoutent le journal détaillé, les décharges et les tables de préférences. Les anciens repas sont copiés vers le journal avec leur propriétaire et leur date, en conservant l'ancienne API pour compatibilité. Les nouvelles tables sont rattachées au compte et supprimées avec lui. Les données métier ne restent plus dans \texttt{localStorage} ; le navigateur y conserve encore le jeton et des préférences visuelles.
 
 \clearpage
 \section{Accès, tableau de bord et personnalisation}
@@ -320,7 +328,95 @@ La figure suivante provient d'un appel réussi à l'API Vision, sur une photogra
 \subsection{Génération et personnalisation de routine}
 La routine est construite à partir du découpage choisi, du nombre de jours, du niveau, de l'objectif et des équipements. La sélection de base appartient au générateur déterministe. L'utilisateur peut changer des exercices, modifier les séries, les répétitions et le repos, puis démarrer la séance dans le Tracker.
 \screen{16-workout-planner}{Routine sauvegardée et matrice du volume hebdomadaire par groupe musculaire.}{fig:routine}
-La routine est persistée dans \texttt{saved\_routines}, propre au compte. Elle reste disponible après un rechargement du navigateur. La matrice de volume sert d'entrée à l'assistant IA mais n'exige pas elle-même de génération de texte.
+La routine est persistée dans \texttt{saved\_routines}, propre au compte. Elle reste disponible après un rechargement du navigateur. Le matériel sélectionné est conservé. Le volume prévu est recalculé depuis les identifiants du catalogue, en attribuant chaque série uniquement au muscle principal ; le champ canonique est \texttt{weekly\_sets\_per\_muscle}. La plage de référence dépend du niveau et de l'objectif et reste un repère de planification, sans garantir une réponse physiologique individuelle.
+
+Le générateur, les alternatives et les ajouts partagent les contraintes de niveau, de matériel et de rôle dans la séance. Aucun exercice n'est dupliqué dans une même séance. Un PPL à deux jours est refusé ; un PPL à quatre ou cinq jours signale une fréquence inégale. Lorsqu'aucun choix admissible n'existe, le programme affiche une limite plutôt que d'introduire un exercice incompatible. Les routines existantes sont conservées et leurs incohérences éventuelles sont signalées. Une modification n'est confirmée à l'interface qu'après sa sauvegarde réussie.
+
+\clearpage
+\subsection{Workout Planner : trois méthodes complémentaires}
+\label{sec:planner-ai}
+Le planificateur combine des règles métier, une recommandation basée sur le contenu, une génération augmentée par recherche et un modèle supervisé personnel. Ces méthodes répondent à des besoins distincts : construire un programme cohérent, trouver des remplacements, expliquer les choix et adapter leur classement aux retours de l'utilisateur.
+\begin{table}[H]
+\small\begin{tabularx}{\linewidth}{p{3cm}XX}
+\toprule
+\textbf{Méthode} & \textbf{Données exploitées} & \textbf{Résultat dans l'interface} \\
+\midrule
+Similarité de contenu & Catalogue : muscles, mouvement, matériel, difficulté & Jusqu'à trois \textit{Smart alternatives} dans \textit{Swap} \\
+RAG & Programme réel et extraits des guides sportifs & \textit{Explain my routine}, avec pages et extraits consultables \\
+Apprentissage supervisé & Retours propres au compte : acceptation, appréciation, refus & Classement personnalisé et état du modèle dans \textit{Your exercise preferences} \\
+\bottomrule
+\end{tabularx}
+\caption{Extensions du Workout Planner au-delà du prompt engineering.}
+\end{table}
+
+\subsubsection{Recommandation par similarité : fonctionnement sans historique}
+Chaque exercice est représenté par des caractéristiques catégorielles : muscle principal, muscles secondaires, mouvement, équipement, difficulté et caractère composé ou d'isolation. La similarité cosinus compare ces vecteurs, avec un poids de 4 pour le muscle principal et de 3 pour le mouvement, contre 1 pour les autres caractéristiques. Ce calcul est déterministe ; il ne nécessite ni appel au LLM ni données d'entraînement utilisateur.
+
+Avant le classement, le serveur impose le même muscle principal, le niveau et le matériel disponibles, ainsi que la compatibilité avec le rôle de la séance. Il exclut l'exercice initial et les exercices déjà présents dans la journée. Au plus trois résultats sont proposés ; si le catalogue n'offre pas trois choix admissibles, l'interface l'indique. Le pourcentage affiché mesure une proximité de caractéristiques, pas une probabilité de réussite ni une supériorité médicale.
+
+\clearpage
+\subsection{RAG : expliquer le programme avec des sources}
+L'utilisateur ouvre \textit{Workouts}, puis \textit{My Routine}, \textit{Why this routine?} et \textit{Explain my routine}. Le serveur reconstruit les noms, muscles et mouvements depuis le catalogue et calcule les séries prévues. Les noms libres du navigateur ne font pas autorité. La recherche associe l'objectif, le niveau et les exercices réellement présents dans le programme.
+
+La chaîne de traitement est la suivante :
+\begin{enumerate}[leftmargin=*,itemsep=0.35em]
+\item Interroger uniquement l'index \texttt{exercise}, avec les embeddings locaux et FAISS, pour récupérer huit passages candidats.
+\item Conserver au plus quatre pages distinctes, afin d'éviter plusieurs extraits voisins présentés comme des preuves différentes.
+\item Fournir à Gemini les faits calculés et les extraits, délimités comme données non fiables, avec une température de 0,2 et un contrat JSON.
+\item Valider une à trois sections avec Pydantic et vérifier que chaque identifiant de citation existe parmi les sources fournies.
+\item Afficher les explications et rendre consultables le nom du document, la page et l'extrait de chaque référence.
+\end{enumerate}
+
+Les documents sportifs sont dans \path{backend/docs/} : \path{BodyType+Training+and+Nutrition.pdf}, \path{Deload_and_Fatigue_Management_in_Strength_Training.pdf}, \path{EndomorphEvolution.pdf} et \path{Functional-Training-Guide-IAFS.pdf}. Leur sélection est décrite dans \path{backend/docs/manifest.json}. Les supports du cours d'IA ne constituent pas le corpus sportif utilisé pour répondre.
+
+Le prompt demande d'expliquer le programme existant sans inventer de séries, d'exercices ou de références. Si la génération échoue, les vrais extraits restent disponibles avec un message explicite. Si aucun passage n'est retrouvé, seuls les faits calculés sont affichés. La validation garantit la structure et l'existence des références ; elle ne démontre pas automatiquement que chaque phrase est soutenue par les documents, ni que ces documents sont scientifiquement validés.
+
+\clearpage
+\subsection{Machine learning : apprendre les préférences du compte}
+\subsubsection{Collecte et construction de la cible}
+Les alternatives affichées et leurs caractéristiques sont enregistrées dans \texttt{exercise\_recommendations}. Le bouton \textit{Like} et une acceptation réellement sauvegardée donnent la cible 1 ; \textit{Not for me} donne la cible 0. Une proposition ignorée n'est jamais un exemple négatif. Un remplacement ultérieur est neutre : il peut traduire un changement de matériel plutôt qu'un rejet.
+
+Pour chaque paire exercice initial/exercice proposé, seul le dernier événement est retenu. Un événement neutre de remplacement neutralise aussi une ancienne appréciation de la même paire. Les clics répétés ne gonflent donc pas artificiellement le nombre d'exemples. Chaque compte apprend sur ses propres retours ; les repas et les séances de démonstration ne deviennent pas des labels de préférence.
+
+\subsubsection{Entraînement et séparation des données}
+L'entraînement exige au moins \textbf{30 paires différentes}, \textbf{5 exemples par classe} et \textbf{8 exercices proposés distincts}. Ces seuils protègent le démarrage du prototype ; ils ne constituent pas une garantie statistique.
+
+Le modèle est une \textbf{régression logistique régularisée} de scikit-learn : \(C=0{,}5\), classes équilibrées et maximum de 500 itérations. Les caractéristiques décrivent la similarité, les correspondances et attributs de l'exercice, l'objectif et le niveau. Les identifiants personnels, adresses électroniques et mensurations ne sont pas utilisés comme caractéristiques.
+
+Environ 25\,\% des groupes d'exercices proposés sont réservés à l'évaluation. Un même exercice proposé ne figure pas à la fois dans l'apprentissage et le test. Le découpage doit contenir les deux classes dans chaque partie ; sinon, davantage de retours diversifiés sont demandés.
+
+\subsubsection{Évaluation, activation et classement}
+Le serveur enregistre la \textit{balanced accuracy}, la \textit{log loss}, le score de Brier et les effectifs. Le modèle n'est activé que si la première dépasse 0,5 et si la log loss améliore une référence à probabilité constante calculée sur les données d'apprentissage. En cas d'échec, un modèle actif compatible est conservé ; sans modèle valide, la similarité seule reste disponible.
+
+Après validation, le modèle est réentraîné sur tous les retours disponibles. Ses coefficients, son intercept, sa version et ses métriques sont stockés en JSON dans \texttt{exercise\_preference\_models}, sans fichier pickle. L'inférence réutilise ces paramètres sans réentraîner à chaque requête. Le classement devient :
+\[
+S = 0{,}8\,S_{\mathrm{similarité}} + 0{,}2\,P_{\mathrm{préférence}}.
+\]
+Les contraintes de matériel, de niveau et de séance restent obligatoires avant ce calcul. Le score de préférence sert au classement ; sa calibration probabiliste n'est pas établie sur un petit historique. Les anciens modèles fondés sur les remplacements négatifs sont désactivés jusqu'à un nouvel entraînement compatible.
+
+\clearpage
+\subsection{Parcours utilisateur et repères dans le code}
+Depuis \textit{Your exercise preferences}, l'utilisateur consulte la collecte, lance l'entraînement ou sa mise à jour et peut effacer ses retours et son modèle sans supprimer sa routine. Au démarrage sans historique, le système explique les données manquantes et utilise la similarité. Aucun modèle personnel n'est présenté comme entraîné avant des retours suffisants.
+
+\begin{table}[H]
+\small\begin{tabularx}{\linewidth}{p{3.3cm}X}
+\toprule
+\textbf{Responsabilité} & \textbf{Emplacement} \\
+\midrule
+Similarité, labels et modèle & \path{backend/app/modules/exercises/recommendations.py} \\
+Règles communes et volume & \path{backend/app/modules/exercises/training_rules.py} et \path{routine_state.py} dans le même dossier \\
+Recherche et explication & \path{backend/app/modules/exercises/planner_explanation.py} \\
+Prompt RAG & \path{backend/app/prompts/planner_explanation.py} \\
+Contrats et routes protégées & \path{backend/app/modules/exercises/planner_schemas.py} et \path{planner_router.py} \\
+Interface des alternatives & \path{frontend/src/components/workouts/SmartAlternatives.tsx} \\
+Entraînement en ligne de commande & \path{backend/scripts/train_exercise_preferences.py} \\
+Documentation détaillée & \path{docs/workout-planner-ai.md} \\
+\bottomrule
+\end{tabularx}
+\caption{Traçabilité des ajouts du Workout Planner.}
+\end{table}
+
+Toutes les routes de ces fonctions exigent une authentification et vérifient la propriété des retours et du modèle. La suppression du compte efface ces données. Les tests couvrent les contraintes, les retours neutres et répétés, l'isolation, le refus d'un modèle insuffisant, son inférence, son effacement et les replis RAG. Les jeux synthétiques vérifient le pipeline logiciel, sans mesurer sa performance sur des sportifs réels. Une collecte réelle, une validation croisée et un jeu final indépendant restent nécessaires avant toute annonce de performance générale.
 
 \clearpage
 \subsection{Assistant IA de routine : expliquer une correction de volume}
@@ -587,9 +683,12 @@ Les leviers déjà présents sont la recherche ciblée, la mémoire limitée, le
 Cette méthode distingue les \textbf{optimisations déjà implémentées} des \textbf{travaux futurs}. Le projet n'effectue pas actuellement de fine-tuning du modèle Gemini ni d'entraînement d'un modèle médical propriétaire.
 
 \clearpage
+\input{optimisation_securite}
+
+\clearpage
 \section{Validation et preuves reproductibles}
 \subsection{Suite automatisée et compilation}
-Le dernier contrôle complet du code intégré donne \textbf{341 tests réussis et 2 ignorés}. La suite couvre les formules, l'authentification, l'isolation des comptes, le journal, les suggestions, le scanner, le plateau, les erreurs du fournisseur et la migration des anciens repas. Les tests fonctionnels emploient une base SQLite de test et des substituts du LLM ; ils ne démontrent pas une précision clinique des générations réelles.
+Le dernier contrôle complet consigné du code intégré donne \textbf{400 tests réussis et 2 ignorés}. La suite couvre les formules, l'authentification, l'isolation des comptes, le journal, les suggestions, le scanner, le plateau, les erreurs du fournisseur et les migrations. Les ajouts du Workout Planner sont notamment vérifiés dans \path{backend/tests/test_workout_planner_ai.py} et \path{backend/tests/test_planner_consistency.py} : niveau, matériel, rôles de séance, volume canonique, labels neutres, entraînement évalué et sources RAG. Les tests fonctionnels utilisent une base SQLite isolée, des données synthétiques et des substituts du LLM ; ils ne démontrent pas une précision clinique ni une performance prédictive sur des utilisateurs réels.
 
 Les deux tests ignorés ne sont pas comptés comme réussis. L'un concerne une coroutine sans plugin asynchrone approprié ; l'autre est un cas marqué comme ignoré dans la suite de diagnostic. Le frontend compile et la vérification TypeScript passe.
 \begin{lstlisting}[caption={Commandes de vérification du projet}]
@@ -657,13 +756,13 @@ Le paramétrage de la température et de la longueur de réponse peut être déc
 \subsection{Conclusion}
 FitBot présente désormais une chaîne complète : compte utilisateur, données persistantes, calculs de cibles, collecte de séances et de repas, recherche documentaire, génération contextualisée et validation de plusieurs types de sortie. Les nouveaux modules IA élargissent l'expérience sans transférer au modèle les décisions numériques qui peuvent être calculées.
 
-L'amélioration de l'output IA provient de la combinaison de prompts spécialisés, de contexte sélectionné, de formats de sortie, de règles de validation et de replis explicites. La suite de tests et les captures démontrent le fonctionnement logiciel ; une évaluation du domaine reste nécessaire pour qualifier les conseils eux-mêmes.
+L'amélioration de l'output IA provient de la combinaison de prompts spécialisés, de contexte sélectionné, de formats de sortie, de règles de validation et de replis explicites. La suite de tests et les captures démontrent le fonctionnement logiciel ; une évaluation du domaine reste nécessaire pour qualifier les conseils eux-mêmes. L'annexe~\ref{annexe:prompts} reproduit les prompts complets et leurs variantes, avec leur provenance dans le code.
 
 \clearpage
 \section*{Références techniques et repères dans le code}
 \addcontentsline{toc}{section}{Références techniques et repères dans le code}
 \begin{enumerate}[leftmargin=*,itemsep=0.5em]
-\item Dépôt FitBot, version intégrée : \url{https://github.com/nessimbns2/FitBot}, commit \texttt{43a4795}.
+\item Dépôt du projet FitBot : \url{https://github.com/nessimbns2/FitBot}.
 \item Sujet du mini-projet : \textit{IA for Software Engineering, année universitaire 2026--2027}, document de cadrage fourni par l'enseignant.
 \item Prompts du coach, de la vision, des routines et du profil : \path{backend/app/prompts/coach.py}, \path{vision.py}, \path{routine.py} et \path{guidance.py} dans le même dossier.
 \item Assemblage RAG, client du fournisseur et gestion des erreurs : \path{backend/app/modules/rag_core/engine.py} et \path{router.py}.
@@ -675,4 +774,7 @@ L'amélioration de l'output IA provient de la combinaison de prompts spécialis�
 \item Évaluation reproductible : \path{backend/scripts/rag_eval.py}, \path{backend/tests/rag_eval.json} et \path{backend/tests/test_sync_integration.py}.
 \item Mifflin et al. (1990), \textit{A new predictive equation for resting energy expenditure in healthy individuals}, référence de la formule utilisée par le calculateur ; son implémentation est documentée dans \path{backend/app/modules/nutrition/calculator.py}.
 \end{enumerate}
+\clearpage
+\appendix
+\input{annexe_prompts}
 \end{document}

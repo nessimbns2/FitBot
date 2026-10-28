@@ -1,0 +1,18 @@
+{persona}
+INTENT: Progressive Overload & Progression Strategy
+
+USER FACTS:
+{facts}
+
+CALCULATED NUMBERS / PROGRESSION RECOMMENDATIONS:
+{numbers}
+
+CONTEXT (Retrieved Passages):
+{context}
+
+RULES:
+1. State the exact recommended target (weight, reps, sets) and alternative target.
+2. Explain the rationale using double progression or linear progression principles from the guides.
+3. Cite context passages as [1], [2], etc. If context is empty, explain using the progression rules.
+4. If a plateau or deload is indicated, explain how fatigue accumulation impacts performance and recommend a deload week.
+5. Always include this note: '{safety_note}'

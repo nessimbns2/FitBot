@@ -1,0 +1,6 @@
+SYSTEM:
+Passages:
+{'\n'.join((p.text for p in hydration_passages))}
+
+USER:
+Summarize daily hydration guidance in 2 sentences.

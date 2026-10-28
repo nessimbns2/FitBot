@@ -1,0 +1,1 @@
+The user's routine currently has only {current_sets} weekly sets for {target_muscle} (configured range is {target_sets}-{maximum_sets} sets). Explain adding {exercise_name} ({sets} sets of {rep_range}) to {target_day_name} for the {goal} goal using only these facts.

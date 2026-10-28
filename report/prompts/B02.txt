@@ -1,0 +1,15 @@
+ATHLETE BIOMETRICS & AUDIT PROFILE:
+- Age: {age} | Sex: {sex}
+- Height: {height_cm} cm | Weight: {weight_kg} kg | BMI: {bmi:.1f}
+- Body Fat: {body_fat_pct}
+- Somatotype: {somatotype}
+- Experience Level: {experience_level}
+- Primary Goal: {goal}
+- Activity Level: {activity_level}
+- Daily Energy Target: {target_kcal} kcal (BMR: {bmr} kcal, TDEE: {tdee} kcal)
+- Macro Distribution: {protein_g}g Protein, {carbs_g}g Carbs, {fat_g}g Fat
+
+SCIENTIFIC LITERATURE CONTEXT:
+{context}
+
+Generate the comprehensive Athlete AI Blueprint in the specified JSON format.

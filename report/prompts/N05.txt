@@ -1,0 +1,20 @@
+def _build_user_message(
+    remaining_kcal: float,
+    remaining_protein: float,
+    remaining_carbs: float,
+    remaining_fat: float,
+    meal_slot: Optional[MealSlotName],
+    preferences: Optional[str],
+) -> str:
+    slot = meal_slot.value.replace("_", "-") if meal_slot else "any meal"
+    lines = [
+        "Remaining for today (computed by the app):",
+        f"- calories: {remaining_kcal:g} kcal",
+        f"- protein: {remaining_protein:g} g",
+        f"- carbs: {remaining_carbs:g} g",
+        f"- fat: {remaining_fat:g} g",
+        f"Meal type wanted: {slot}",
+    ]
+    if preferences and preferences.strip():
+        lines.append(f'Food preferences (text from the user): "{preferences.strip()}"')
+    return "\n".join(lines)

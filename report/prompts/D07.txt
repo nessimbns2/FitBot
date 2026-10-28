@@ -1,0 +1,13 @@
+Lifter profile: {experience_level} lifter, goal: {goal}.
+Root cause diagnosed by Python: '{result.root_cause.value}'.
+Direction labels from data:
+ - Weight direction: {sigs['weight_trend']}
+ - Strength (1RM) direction: {sigs['strength_trend']}
+ - Effort (RPE) direction: {sigs['effort_signal']}
+ - Intra-session rep direction: {sigs['rep_signal']}
+Effort data coverage: {sigs['rpe_coverage']}.
+Weekly training volume: {sigs['volume_status']}.
+Python prescription: strategy = '{strat_value}'.
+Approved options: [{allowed_strategies_str}].
+
+Write three sentences following the FIXED STRUCTURE. Respect the direction labels above (e.g. if weight is flat, do NOT claim weight is declining; if effort is climbing, do NOT claim effort is stable).

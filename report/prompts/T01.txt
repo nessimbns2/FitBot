@@ -1,0 +1,30 @@
+def build_prompt(
+    intent: str,
+    facts: str,
+    numbers: str,
+    passages: List[SearchResult],
+    history: List[Dict[str, str]],
+) -> Tuple[str, List[Dict[str, str]]]:
+    """Assemble system prompt and chat messages (keeping last 10 history messages)."""
+    template = PROMPT_TEMPLATES.get(intent, GENERAL_PROMPT_TEMPLATE)
+
+    if passages:
+        formatted_context = "\n\n".join(
+            f"[{i+1}] (Source: {p.source}, Page {p.page})\n{p.text}"
+            for i, p in enumerate(passages)
+        )
+    else:
+        formatted_context = "No retrieved context passages available."
+
+    system_prompt = template.format(
+        persona=COACH_PERSONA,
+        facts=facts.strip() or "Standard profile",
+        numbers=numbers.strip() or "None",
+        context=formatted_context,
+        safety_note=SAFETY_DISCLAIMER,
+    )
+
+    # Keep only the last 10 messages of history
+    trimmed_history = history[-10:] if len(history) > 10 else list(history)
+
+    return system_prompt, trimmed_history

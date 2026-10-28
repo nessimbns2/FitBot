@@ -1,0 +1,8 @@
+User Anthropometric Assessment Responses:
+1. Wrist & Bone Structure: {wrist_structure}
+2. Natural Frame & Silhouette: {body_frame}
+3. Weight Gain & Fat Storage Tendency: {weight_tendency}
+4. Muscle Tone & Mass Distribution: {muscle_definition}
+5. Carbohydrate & Post-Meal Energy Response: {carb_response}
+
+Based on these validated physiological markers, determine the user's primary somatotype and return the required JSON object.

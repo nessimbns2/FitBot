@@ -1,0 +1,1 @@
+Summarize key nutrition and macronutrient advice for an {somatotype}.

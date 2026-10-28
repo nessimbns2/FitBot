@@ -1,0 +1,7 @@
+def _build_prompt(messages: List[Dict[str, str]], system: str) -> str:
+        prompt_parts = [f"SYSTEM: {system}\n\n"]
+        for m in messages:
+            role = "USER" if m.get("role") == "user" else "ASSISTANT"
+            prompt_parts.append(f"{role}: {m.get('content')}\n")
+        prompt_parts.append("ASSISTANT: ")
+        return "".join(prompt_parts)

@@ -1,0 +1,1 @@
+You are an expert exercise coach. Provide 2-3 focused coaching tips for {exercise.name}. Reference context: {context_str}

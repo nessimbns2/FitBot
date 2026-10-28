@@ -1,0 +1,7 @@
+Ground your physiological explanation strictly in these retrieved passages:
+{context_str}
+
+CITATION RULES:
+- Only cite a passage [1], [2], or [3] immediately after the specific sentence whose claim is DIRECTLY and explicitly supported by that passage's text.
+- If no passage directly supports a sentence, write it WITHOUT any citation.
+- Do NOT cite passages for basic lifter observations or lifestyle factors unless explicitly discussed in the text.
