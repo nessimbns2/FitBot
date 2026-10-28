@@ -412,47 +412,47 @@ Conformément aux principes du cours \textit{Prompt Engineering (IA for Software
 \footnotesize
 \begin{tabularx}{\linewidth}{p{3.0cm}p{2.1cm}p{3.8cm}X}
 \toprule
-\textbf{Gabarit / Prompt} & \textbf{Responsable} & \textbf{Techniques du cours} & \textbf{Justification et garde-fous} \\
+\textbf{Gabarit / Prompt} & \textbf{Responsable} & \textbf{Techniques de prompt} & \textbf{Justification et garde-fous} \\
 \midrule
 \texttt{COACH\_PERSONA} \newline \scriptsize(\path{coach.py}) & Nessim \newline \scriptsize(RAG Core) & 
-\textbf{Rôle / Persona} (slide 10) \newline
-\textbf{Amorce (Priming)} (slide 12) \newline
-\textbf{Prompt explicite} (slide 4) &
+\textbf{Rôle / Persona} \newline
+\textbf{Amorce (Priming)} \newline
+\textbf{Prompt explicite} &
 Définit la posture d'expert scientifique discipliné ; supprime les bavardages et les salutations superflues. \\
 \addlinespace
 \texttt{NUTRITION\_PROMPT} \newline \scriptsize(\path{coach.py}) & Hamza \newline \scriptsize(Nutrition) & 
-\textbf{Anatomie complète} (slide 10) \newline
-\textbf{Knowledge Gen. (RAG)} (slide 18) \newline
-\textbf{Fact Conditioning} (slide 31) \newline
-\textbf{Garde-fous négatifs} (slide 34) &
+\textbf{Anatomie complète} \newline
+\textbf{Knowledge Gen. (RAG)} \newline
+\textbf{Fact Conditioning} \newline
+\textbf{Garde-fous négatifs} &
 Injecte les calories et macros calculées en Python comme faits non recalculables ; contraint les citations $[1], [2]$ ; refuse stéroïdes et régimes extrêmes. \\
 \addlinespace
 \texttt{EXERCISE\_TECHNIQUE} \newline \scriptsize(\path{coach.py}) & Nessim \newline \scriptsize(RAG Core) & 
-\textbf{Knowledge Gen. (RAG)} (slide 18) \newline
-\textbf{Citations traçables} (slide 31) \newline
-\textbf{Contrainte négative} (slide 34) &
+\textbf{Knowledge Gen. (RAG)} \newline
+\textbf{Citations traçables} \newline
+\textbf{Contrainte négative} &
 Guide biomécanique et placement articulaire sourcé ; décline formellement le diagnostic médical en cas de douleur signalée. \\
 \addlinespace
 \texttt{OVERLOAD\_ADVICE} \newline \scriptsize(\path{coach.py}) & Mahdi \newline \scriptsize(Progression) & 
-\textbf{Fact Conditioning} (slide 10, 31) \newline
-\textbf{Raisonnement guidé} (slide 21) \newline
-\textbf{Prompt explicite} (slide 4) &
+\textbf{Fact Conditioning} \newline
+\textbf{Raisonnement guidé} \newline
+\textbf{Prompt explicite} &
 Transmet la charge cible et la stratégie de double progression calculées par l'algorithme ; explicite l'impact de la fatigue et la décharge. \\
 \addlinespace
 \texttt{WORKOUT\_LOGGING} \newline \scriptsize(\path{coach.py}) & Nessim \newline \scriptsize(RAG Core) & 
-\textbf{Contrainte négative} (slide 34) \newline
-\textbf{Format de confirmation} (slide 10) &
+\textbf{Contrainte négative} \newline
+\textbf{Format de confirmation} &
 Reformule les séries, charges et répétitions saisies ; interdit formellement d'inventer des séries fictives (\textit{do not invent fake sets}). \\
 \addlinespace
 \texttt{GENERAL\_PROMPT} \newline \scriptsize(\path{coach.py}) & Nessim \newline \scriptsize(RAG Core) & 
-\textbf{Knowledge Gen. (RAG)} (slide 18) \newline
-\textbf{Gestion d'incertitude} (slide 31) \newline
-\textbf{Contraintes explicites} (slide 34) &
+\textbf{Knowledge Gen. (RAG)} \newline
+\textbf{Gestion d'incertitude} \newline
+\textbf{Contraintes explicites} &
 Réponse générale ancrée dans les manuels ; impose la phrase d'aveu d'ignorance (\textit{I could not find this in the guides}) en cas de manque de sources. \\
 \addlinespace
 \texttt{ROUTINE\_SUGGESTION} \newline \scriptsize(\path{routine.py}) & Montassar \newline \scriptsize(Routine) & 
-\textbf{Portée et concision} (slide 9, 34) \newline
-\textbf{Prompt explicite} (slide 4) &
+\textbf{Portée et concision} \newline
+\textbf{Prompt explicite} &
 Restreint la justification à une ou deux phrases ciblées pour combler un déficit de séries hebdomadaires sans dérive textuelle. \\
 \bottomrule
 \end{tabularx}
@@ -466,30 +466,30 @@ Restreint la justification à une ou deux phrases ciblées pour combler un défi
 \footnotesize
 \begin{tabularx}{\linewidth}{p{3.0cm}p{2.1cm}p{3.8cm}X}
 \toprule
-\textbf{Gabarit / Prompt} & \textbf{Responsable} & \textbf{Techniques du cours} & \textbf{Justification et garde-fous} \\
+\textbf{Gabarit / Prompt} & \textbf{Responsable} & \textbf{Techniques de prompt} & \textbf{Justification et garde-fous} \\
 \midrule
 \texttt{MEAL\_SCAN\_VISION} \newline \scriptsize(\path{vision.py}) & Hamza \newline \scriptsize(Nutrition) & 
-\textbf{Rôle spécifique} (slide 10) \newline
-\textbf{Sortie structurée JSON} (slide 26) \newline
-\textbf{Few-shot exemplars} (slide 20) &
+\textbf{Rôle spécifique} \newline
+\textbf{Sortie structurée JSON} \newline
+\textbf{Few-shot exemplars} &
 Analyse multimodale d'assiette ; impose un schéma JSON strict avec exemples de portions (g) et de macros sans balisage markdown parasite. \\
 \addlinespace
 \texttt{SOMATOTYPE\_PREDICT} \newline \scriptsize(\path{guidance.py}) & Nessim \newline \scriptsize(Athlete Profile) & 
-\textbf{Rôle expert} (slide 10) \newline
-\textbf{Sortie structurée JSON} (slide 26) \newline
-\textbf{Classification guidée} (slide 10) &
+\textbf{Rôle expert} \newline
+\textbf{Sortie structurée JSON} \newline
+\textbf{Classification guidée} &
 Analyse anthropométrique Heath--Carter à partir des 5 réponses utilisateur ; produit un objet JSON typé avec indice de confiance. \\
 \addlinespace
 \texttt{ATHLETE\_BLUEPRINT} \newline \scriptsize(\path{guidance.py}) & Nessim \newline \scriptsize(Athlete Profile) & 
-\textbf{Sortie structurée JSON} (slide 26) \newline
-\textbf{Few-shot exemplars} (slide 20) \newline
-\textbf{Plain-Language} (slide 9) &
+\textbf{Sortie structurée JSON} \newline
+\textbf{Few-shot exemplars} \newline
+\textbf{Plain-Language} &
 Synthétise forces, repères de volume et jalons temporels en JSON ; force un vocabulaire direct et encourageant sans jargon académique intimidant. \\
 \addlinespace
 \texttt{SYSTEM\_PROMPT} \newline \scriptsize(\path{suggestion_service.py}) & Hamza \newline \scriptsize(Nutrition) & 
-\textbf{Sortie structurée JSON} (slide 26) \newline
-\textbf{Fact Conditioning} (slide 31) \newline
-\textbf{Contrainte d'admissibilité} (slide 34) &
+\textbf{Sortie structurée JSON} \newline
+\textbf{Fact Conditioning} \newline
+\textbf{Contrainte d'admissibilité} &
 Génère jusqu'à 3 collations adaptées au solde calorique restant transmis comme fait fixe ; interdit les recommandations pharmacologiques. \\
 \bottomrule
 \end{tabularx}
@@ -497,15 +497,15 @@ Génère jusqu'à 3 collations adaptées au solde calorique restant transmis com
 \label{tab:prompt-structured}
 \end{table}
 
-\subsubsection{Focus sur les techniques structurantes du cours}
-L'examen détaillé des gabarits met en lumière la mise en pratique directe des notions fondamentales du cours :
+\subsubsection{Focus sur les techniques de prompt structurantes}
+L'examen détaillé des gabarits met en lumière la mise en pratique directe des notions fondamentales d'ingénierie d'invite :
 \begin{itemize}[leftmargin=*,itemsep=0.4em]
-\item \textbf{L'amorce (Priming) et le rôle (slides 10, 12, 13) :} Aucun appel n'est soumis de manière brute. Le modèle reçoit systématiquement un cadrage d'identité (\texttt{COACH\_PERSONA}, analyste de vision ou anthropométricien), ce qui calibre son niveau de langage, son degré d'exigence et son éthique de réponse.
-\item \textbf{La génération avec apport de connaissances (Knowledge Generation / RAG, slides 18, 19) :} Le système ne compte pas sur la mémoire pré-entraînée du modèle pour la physiologie de l'exercice. Les passages documentaires pertinents ($k=5$ ou $k=3$) sont injectés directement dans le bloc \texttt{CONTEXT}, avec consigne expresse de citer les sources sous la forme $[1], [2]$.
-\item \textbf{Le conditionnement factuel (Fact Conditioning contre les hallucinations, slide 31) :} Les calculs métaboliques (formules de Mifflin--St Jeor et Katch--McArdle) et les charges de double progression sont résolus en amont en Python. L'instruction impérative \texttt{DO NOT RECOMPUTE} interdit au modèle de refaire l'arithmétique, éliminant mathématiquement le risque d'erreur de calcul.
-\item \textbf{La structuration stricte de sortie (JSON Schema, slide 26) :} Pour les fonctionnalités interactives (Vision, Blueprint, Suggestions), le format JSON pur sans texte introductif est imposé, réduisant le texte parasite (\og \textit{Bien sûr, voici...} \fg{}) et rendant la sortie directement consommable par les parseurs Pydantic de FastAPI.
-\item \textbf{Les exemples intégrés (Few-Shot Prompting, slide 20) :} Les schémas de sortie complexes incluent des exemples d'aliments, de portions et d'intervalles de répétitions directement dans la définition des champs afin de guider l'échelle des grandeurs attendues.
-\item \textbf{La sécurité et l'anonymisation (Checklist prompt safe, slides 31--35) :} Avant insertion dans les gabarits, le module \texttt{privacy.py} filtre les PII (adresses email, numéros de téléphone et identifiants), et chaque prompt de coaching intègre des contraintes négatives explicites (refus des stéroïdes, des substances dopantes et des diagnostics médicaux).
+\item \textbf{L'amorce (Priming) et le rôle :} Aucun appel n'est soumis de manière brute. Le modèle reçoit systématiquement un cadrage d'identité (\texttt{COACH\_PERSONA}, analyste de vision ou anthropométricien), ce qui calibre son niveau de langage, son degré d'exigence et son éthique de réponse.
+\item \textbf{La génération avec apport de connaissances (Knowledge Generation / RAG) :} Le système ne compte pas sur la mémoire pré-entraînée du modèle pour la physiologie de l'exercice. Les passages documentaires pertinents ($k=5$ ou $k=3$) sont injectés directement dans le bloc \texttt{CONTEXT}, avec consigne expresse de citer les sources sous la forme $[1], [2]$.
+\item \textbf{Le conditionnement factuel (Fact Conditioning contre les hallucinations) :} Les calculs métaboliques (formules de Mifflin--St Jeor et Katch--McArdle) et les charges de double progression sont résolus en amont en Python. L'instruction impérative \texttt{DO NOT RECOMPUTE} interdit au modèle de refaire l'arithmétique, éliminant mathématiquement le risque d'erreur de calcul.
+\item \textbf{La structuration stricte de sortie (JSON Schema) :} Pour les fonctionnalités interactives (Vision, Blueprint, Suggestions), le format JSON pur sans texte introductif est imposé, réduisant le texte parasite (\og \textit{Bien sûr, voici...} \fg{}) et rendant la sortie directement consommable par les parseurs Pydantic de FastAPI.
+\item \textbf{Les exemples intégrés (Few-Shot Prompting) :} Les schémas de sortie complexes incluent des exemples d'aliments, de portions et d'intervalles de répétitions directement dans la définition des champs afin de guider l'échelle des grandeurs attendues.
+\item \textbf{La sécurité et l'anonymisation (Checklist Prompt Safe) :} Avant insertion dans les gabarits, le module \texttt{privacy.py} filtre les PII (adresses email, numéros de téléphone et identifiants), et chaque prompt de coaching intègre des contraintes négatives explicites (refus des stéroïdes, des substances dopantes et des diagnostics médicaux).
 \end{itemize}
 
 \clearpage
