@@ -216,6 +216,22 @@ RULES:
 3. If the context does not contain enough information, state: 'I could not find this in the guides.'
 ```
 
+### Prompt Engineering Techniques Matrix (ESPRIT Course Alignment)
+
+| Prompt / Template | Lead Developer | Course Technique Applied | Purpose & Safeguards |
+| :--- | :--- | :--- | :--- |
+| **`COACH_PERSONA`**<br>`coach.py` | Nessim *(RAG Core)* | • **Role / Persona Prompting** (Slide 10)<br>• **Amorce / Priming** (Slide 12)<br>• **Prompt Explicite** (Slide 4) | Sets disciplined scientific persona; forbids chatty small-talk and guessing PII. |
+| **`NUTRITION_PROMPT_TEMPLATE`**<br>`coach.py` | Hamza *(Nutrition)* | • **Anatomie Complète (Rôle/Ctx/Tâche/Format/Limites)** (Slide 10)<br>• **Knowledge Generation (RAG)** (Slide 18)<br>• **Fact Conditioning** (Slide 31)<br>• **Negative Constraints** (Slide 34) | Injects Python-calculated calories/macros as unalterable facts; enforces `[1], [2]` citations; refuses steroids and extreme crash diets. |
+| **`EXERCISE_TECHNIQUE_PROMPT_TEMPLATE`**<br>`coach.py` | Nessim *(RAG Core)* | • **Knowledge Generation (RAG)** (Slide 18)<br>• **Traceable Citations** (Slide 31)<br>• **Negative Constraints** (Slide 34) | Provides grounded form cues and biomechanics; explicitly declines medical diagnosis if pain/injury is reported. |
+| **`OVERLOAD_ADVICE_PROMPT_TEMPLATE`**<br>`coach.py` | Mahdi *(Progression)* | • **Fact Conditioning** (Slide 10, 31)<br>• **Guided Reasoning / CoT** (Slide 21)<br>• **Prompt Explicite** (Slide 4) | Supplies algorithm-computed target weight and double-progression reps; explains fatigue accumulation and deload. |
+| **`WORKOUT_LOGGING_PROMPT_TEMPLATE`**<br>`coach.py` | Nessim *(RAG Core)* | • **Negative Constraints** (Slide 34)<br>• **Structured Confirmation** (Slide 10) | Confirms logged sets, loads, and reps; strictly forbids inventing hallucinated sets (*"Do not invent fake sets"*). |
+| **`GENERAL_PROMPT_TEMPLATE`**<br>`coach.py` | Nessim *(RAG Core)* | • **Knowledge Generation (RAG)** (Slide 18)<br>• **Uncertainty Calibration** (Slide 31)<br>• **Explicit Safeguards** (Slide 34) | Fallback for general fitness queries; mandates *"I could not find this in the guides"* if evidence is missing. |
+| **`MEAL_SCAN_VISION_PROMPT`**<br>`vision.py` | Hamza *(Nutrition)* | • **Domain Role Prompting** (Slide 10)<br>• **Structured Output (JSON)** (Slide 26)<br>• **Few-Shot Exemplars** (Slide 20) | Multimodal food plate analysis; enforces strict JSON schema with portion gram/macro examples and no markdown wrappers. |
+| **`SOMATOTYPE_PREDICTION_SYSTEM_PROMPT`**<br>`guidance.py` | Nessim *(Athlete Profile)* | • **Expert Anthropometrist Role** (Slide 10)<br>• **Structured Output (JSON)** (Slide 26)<br>• **Guided Classification** (Slide 10) | Heath-Carter assessment classifying Ecto/Meso/Endomorph with confidence score and tailored training/macro directions. |
+| **`ATHLETE_BLUEPRINT_SYSTEM_PROMPT`**<br>`guidance.py` | Nessim *(Athlete Profile)* | • **Structured Output (JSON)** (Slide 26)<br>• **Few-Shot Exemplars** (Slide 20)<br>• **Plain-Language Conditioning** (Slide 9) | Produces comprehensive athletic audit; strictly mandates plain conversational English over complex sports-science jargon. |
+| **`ROUTINE_SUGGESTION_SYSTEM_PROMPT`**<br>`routine.py` | Montassar *(Routine)* | • **Concise Scope Limiting** (Slide 9, 34)<br>• **Prompt Explicite** (Slide 4) | Restricts rationale to 1-2 targeted sentences explaining weekly muscle volume deficit coverage. |
+| **`SYSTEM_PROMPT`**<br>`suggestion_service.py` | Hamza *(Nutrition)* | • **Structured Output (JSON)** (Slide 26)<br>• **Fact Conditioning** (Slide 31)<br>• **Admissibility Constraints** (Slide 34) | Generates up to 3 snack/meal ideas strictly fitting remaining daily calorie/protein budget; declines pharmacology. |
+
 ---
 
 ## 6. LLM Engine & Resilience Layer (`engine.py`)
